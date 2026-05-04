@@ -1,0 +1,7 @@
+name: Housing
+version: '1.0'
+main: com.tommustbe12.housing.Housing
+api-version: '1.20'
+authors: [ TomMustBe12 ]
+description: Based off of Hypixel's Housing, this plugin adds the core features of Hypixel Housing! It is the core functionality plugin that provides the custom functions, commands, and item editor players can use.
+website: https://tommustbe12.com/
