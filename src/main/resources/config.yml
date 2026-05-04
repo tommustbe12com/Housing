@@ -1,0 +1,9 @@
+debug:
+  enabled: true
+
+houses:
+  plot-size: 256
+  starter-platform:
+    size: 8
+    y: 64
+
