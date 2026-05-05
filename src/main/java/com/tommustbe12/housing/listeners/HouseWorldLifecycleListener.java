@@ -68,6 +68,7 @@ public final class HouseWorldLifecycleListener implements Listener {
         var info = houses.getHouseInfoByWorld(world);
         if (info != null) {
             inventories.saveHouseInventory(event.getPlayer(), info.owner(), info.slot());
+            actions.runEvent(info.owner(), info.slot(), world, event.getPlayer(), "player_quit");
         }
         // Delay one tick so the quitter is removed from the world's player list
         Bukkit.getScheduler().runTaskLater(plugin, () -> {

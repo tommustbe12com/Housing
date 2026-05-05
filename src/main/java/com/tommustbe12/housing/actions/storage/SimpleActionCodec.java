@@ -8,10 +8,13 @@ import com.tommustbe12.housing.actions.impl.DisplayTitleAction;
 import com.tommustbe12.housing.actions.impl.FullHealAction;
 import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.KillPlayerAction;
+import com.tommustbe12.housing.actions.impl.RunFunctionAction;
 import com.tommustbe12.housing.actions.impl.ResetInventoryAction;
 import com.tommustbe12.housing.actions.impl.SendChatMessageAction;
 import com.tommustbe12.housing.actions.impl.SendToHubAction;
 import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
+import com.tommustbe12.housing.actions.impl.ConditionalAction;
+import com.tommustbe12.housing.actions.ActionList;
 import com.tommustbe12.housing.actions.placeholders.Placeholders;
 import com.tommustbe12.housing.actions.placeholders.VariablesStore;
 import com.tommustbe12.housing.houses.HouseManager;
@@ -22,11 +25,13 @@ public final class SimpleActionCodec implements ActionCodec {
     private final Placeholders placeholders;
     private final VariablesStore variables;
     private final HouseManager houses;
+    private final RunFunctionAction.FunctionRunner functionRunner;
 
-    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses) {
+    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner) {
         this.placeholders = placeholders;
         this.variables = variables;
         this.houses = houses;
+        this.functionRunner = functionRunner;
     }
 
     @Override
@@ -56,9 +61,36 @@ public final class SimpleActionCodec implements ActionCodec {
                     integer(map, "durationTicks", 200),
                     integer(map, "amplifier", 0)
             );
+            case "run_function" -> new RunFunctionAction(functionRunner, string(map, "name"), bool(map, "global", false));
+            case "conditional" -> decodeConditional(map);
             default -> null;
         };
     }
+
+    private Action decodeConditional(Map<?, ?> map) {
+        String left = string(map, "left");
+        String opRaw = string(map, "op").toUpperCase();
+        String right = string(map, "right");
+        ConditionalAction.Op op;
+        try { op = ConditionalAction.Op.valueOf(opRaw); } catch (Exception e) { op = ConditionalAction.Op.EQ; }
+
+        ActionList thenList = decodeNested(map.get("then"));
+        ActionList elseList = decodeNested(map.get("else"));
+        return new ConditionalAction(placeholders, left, op, right, thenList, elseList);
+    }
+
+    private ActionList decodeNested(Object raw) {
+        ActionList list = new ActionList();
+        if (!(raw instanceof java.util.List<?> arr)) return list;
+        for (Object o : arr) {
+            if (o instanceof Map<?, ?> m) {
+                Action a = decode(m);
+                if (a != null) list.actions().add(a);
+            }
+        }
+        return list;
+    }
+
 
     private static String string(Map<?, ?> map, String key) {
         Object v = map.get(key);
@@ -73,5 +105,11 @@ public final class SimpleActionCodec implements ActionCodec {
         } catch (NumberFormatException e) {
             return def;
         }
+    }
+
+    private static boolean bool(Map<?, ?> map, String key, boolean def) {
+        Object v = map.get(key);
+        if (v == null) return def;
+        return Boolean.parseBoolean(v.toString());
     }
 }

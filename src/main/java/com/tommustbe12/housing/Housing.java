@@ -11,9 +11,11 @@ import com.tommustbe12.housing.listeners.HouseRespawnListener;
 import com.tommustbe12.housing.listeners.ChatPromptListener;
 import com.tommustbe12.housing.gui.ActionsEditor;
 import com.tommustbe12.housing.gui.ItemEditGui;
+import com.tommustbe12.housing.gui.FunctionsGui;
 import com.tommustbe12.housing.commands.EditCommand;
 import com.tommustbe12.housing.listeners.ItemEditGuiListener;
 import com.tommustbe12.housing.listeners.ItemActionListener;
+import com.tommustbe12.housing.listeners.HouseEventActionsListener;
 import com.tommustbe12.housing.listeners.PlayerJoinListener;
 import com.tommustbe12.housing.listeners.PlayerQuitListener;
 import com.tommustbe12.housing.listeners.HouseWorldLifecycleListener;
@@ -30,6 +32,7 @@ public final class Housing extends JavaPlugin {
     private com.tommustbe12.housing.chat.ChatPrompts chatPrompts;
     private ActionsEditor actionsEditor;
     private ItemEditGui itemEditGui;
+    private FunctionsGui functionsGui;
 
     @Override
     public void onEnable() {
@@ -43,7 +46,8 @@ public final class Housing extends JavaPlugin {
         this.actionsService = new HouseActionsService(this, debug, houseManager);
         this.actionsEditor = new ActionsEditor(this, debug, chatPrompts, houseManager);
         this.itemEditGui = new ItemEditGui(this, debug, chatPrompts, actionsEditor, houseManager);
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor);
+        this.functionsGui = new FunctionsGui(this, debug, chatPrompts, actionsEditor, houseManager);
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
         getServer().getPluginManager().registerEvents(houseItemListener, this);
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(debug, houseItemListener, houseManager, ownerTagService), this);
@@ -53,6 +57,7 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ChatPromptListener(chatPrompts), this);
         getServer().getPluginManager().registerEvents(new ItemEditGuiListener(itemEditGui), this);
         getServer().getPluginManager().registerEvents(new ItemActionListener(this, debug, houseManager, itemEditGui), this);
+        getServer().getPluginManager().registerEvents(new HouseEventActionsListener(houseManager, actionsService), this);
         getServer().getPluginManager().registerEvents(new HouseRespawnListener(this, houseManager, actionsService, inventoryService), this);
 
         HouseCommand houseCommand = new HouseCommand(this, debug, houseManager);

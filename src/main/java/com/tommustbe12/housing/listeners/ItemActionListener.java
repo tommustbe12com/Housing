@@ -36,7 +36,7 @@ public final class ItemActionListener implements Listener {
         this.storage = new ItemActionsStorage(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders placeholders = new Placeholders(vars);
-        this.codec = new SimpleActionCodec(placeholders, vars, houses);
+        this.codec = new SimpleActionCodec(placeholders, vars, houses, (ctx, fn, global) -> {});
         this.engine = new ActionsEngine(plugin, debug);
     }
 
@@ -60,4 +60,3 @@ public final class ItemActionListener implements Listener {
         engine.run(list, new ActionContext(plugin, debug, info.owner(), info.slot(), event.getPlayer().getWorld(), event.getPlayer(), null, event.getPlayer().getLocation()));
     }
 }
-

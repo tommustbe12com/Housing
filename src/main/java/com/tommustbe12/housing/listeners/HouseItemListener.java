@@ -2,6 +2,7 @@ package com.tommustbe12.housing.listeners;
 
 import com.tommustbe12.housing.debug.Debug;
 import com.tommustbe12.housing.gui.ActionsEditor;
+import com.tommustbe12.housing.gui.FunctionsGui;
 import com.tommustbe12.housing.houses.HouseManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -30,6 +31,7 @@ public final class HouseItemListener implements Listener {
     private final Debug debug;
     private final HouseManager houses;
     private final ActionsEditor actionsEditor;
+    private final FunctionsGui functionsGui;
 
     private final NamespacedKey housingItemKey;
     private final NamespacedKey hotOwnerKey;
@@ -43,11 +45,12 @@ public final class HouseItemListener implements Listener {
     private static final String TITLE_ICON_PICKER = "Choose Icon";
     private static final String TITLE_DELETE_CONFIRM = "Delete House?";
 
-    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor) {
+    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor, FunctionsGui functionsGui) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
         this.actionsEditor = actionsEditor;
+        this.functionsGui = functionsGui;
         this.housingItemKey = new NamespacedKey(plugin, "housing_item");
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
@@ -102,7 +105,7 @@ public final class HouseItemListener implements Listener {
         inv.setItem(12, named(Material.REDSTONE, "§eEvent Actions", List.of("§7Configure triggers (V1 scaffold).")));
         inv.setItem(14, named(Material.OAK_SIGN, "§bScoreboard Editor", List.of("§7Coming in a later version.")));
         inv.setItem(16, named(Material.COMMAND_BLOCK, "§dCommands", List.of("§7Coming in a later version.")));
-        inv.setItem(28, named(Material.BOOK, "§fFunctions", List.of("§7Coming in a later version.")));
+        inv.setItem(28, named(Material.BOOK, "§fFunctions", List.of("§7Create reusable action lists.")));
         inv.setItem(30, named(Material.CHEST, "§6Inventory Layouts", List.of("§7Coming in a later version.")));
         inv.setItem(32, named(Material.PLAYER_HEAD, "§9Teams", List.of("§7Coming in a later version.")));
         inv.setItem(34, named(Material.ITEM_FRAME, "§aCustom Menus", List.of("§7Coming in a later version.")));
@@ -221,6 +224,8 @@ public final class HouseItemListener implements Listener {
                     && !TITLE_EVENT_ACTIONS.equals(title)
                     && !"Add Action".equals(title)
                     && !actionsEditor.isEditorTitle(title)
+                    && !"Edit Conditional".equals(title)
+                    && !functionsGui.isTitle(title)
                     && !title.startsWith(TITLE_ICON_PICKER)
                     && !title.startsWith(TITLE_DELETE_CONFIRM)) return;
 
@@ -233,8 +238,20 @@ public final class HouseItemListener implements Listener {
                 actionsEditor.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openEventActionsMenu(player));
                 return;
             }
-            if ("Add Action".equals(title)) {
+            if (actionsEditor.isAddTitle(title)) {
                 actionsEditor.handleAddPickerClick(player, clicked);
+                return;
+            }
+            if (actionsEditor.isFunctionPickerTitle(title)) {
+                actionsEditor.handleFunctionPickerClick(player, clicked, event.getClick());
+                return;
+            }
+            if (actionsEditor.isConditionalEditTitle(title)) {
+                actionsEditor.handleConditionalEditClick(player, clicked);
+                return;
+            }
+            if (functionsGui.isTitle(title)) {
+                functionsGui.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openSystemsMenu(player));
                 return;
             }
 
@@ -324,6 +341,10 @@ public final class HouseItemListener implements Listener {
                     openEventActionsMenu(player);
                     return;
                 }
+                if (clicked.getType() == Material.BOOK) {
+                    functionsGui.open(player);
+                    return;
+                }
                 player.sendMessage("§7That system is coming in a later version.");
             }
 
@@ -359,7 +380,7 @@ public final class HouseItemListener implements Listener {
                     default -> null;
                 };
                 if (eventKey == null) return;
-                actionsEditor.openEventActions(player, info.owner(), info.slot(), eventKey);
+                actionsEditor.openEventActions(player, info.owner(), info.slot(), eventKey, () -> openEventActionsMenu(player));
             }
 
             if (title.startsWith(TITLE_ICON_PICKER)) {
@@ -419,6 +440,8 @@ public final class HouseItemListener implements Listener {
                 || TITLE_EVENT_ACTIONS.equals(title)
                 || "Add Action".equals(title)
                 || actionsEditor.isEditorTitle(title)
+                || "Edit Conditional".equals(title)
+                || functionsGui.isTitle(title)
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)) {
             event.setCancelled(true);

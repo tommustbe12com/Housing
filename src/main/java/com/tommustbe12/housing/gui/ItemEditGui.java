@@ -49,7 +49,7 @@ public final class ItemEditGui {
         this.itemActionsStorage = new ItemActionsStorage(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders placeholders = new Placeholders(vars);
-        this.codec = new SimpleActionCodec(placeholders, vars, houses);
+        this.codec = new SimpleActionCodec(placeholders, vars, houses, (ctx, fn, global) -> {});
     }
 
     public boolean isTitle(String title) {
@@ -105,6 +105,9 @@ public final class ItemEditGui {
                     Bukkit.getScheduler().runTask(plugin, () -> applyEnchantInput(player, msg));
                 });
             }
+            if (clicked.getType() == Material.BARRIER) {
+                Bukkit.getScheduler().runTask(plugin, () -> applyEnchantInput(player, "clear"));
+            }
         }
     }
 
@@ -148,7 +151,7 @@ public final class ItemEditGui {
 
         // In V1, item click actions are global (not per-house); later we can scope to house.
         ActionList list = itemActionsStorage.load(itemId, codec);
-        actionsEditor.openStandalone(player, "item_click", list, updated -> itemActionsStorage.save(itemId, updated, serializer));
+        actionsEditor.openStandalone(player, "item_click", list, updated -> itemActionsStorage.save(itemId, updated, serializer), () -> open(player));
     }
 
     private UUID ensureItemId(ItemStack held) {
@@ -185,4 +188,3 @@ public final class ItemEditGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-

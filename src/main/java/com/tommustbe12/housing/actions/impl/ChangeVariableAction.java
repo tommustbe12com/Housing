@@ -27,8 +27,12 @@ public final class ChangeVariableAction implements Action {
     public void execute(ActionContext ctx) {
         if (ctx.player() == null) return;
         String cleaned = key;
-        if (cleaned.startsWith("%stats.") && cleaned.endsWith("%")) {
-            cleaned = cleaned.substring("%stats.".length(), cleaned.length() - 1);
+        if (cleaned.endsWith("%")) {
+            if (cleaned.startsWith("%stats.")) {
+                cleaned = cleaned.substring("%stats.".length(), cleaned.length() - 1);
+            } else if (cleaned.startsWith("%stat.")) {
+                cleaned = cleaned.substring("%stat.".length(), cleaned.length() - 1);
+            }
         }
         variables.set(ctx.houseOwner(), ctx.houseSlot(), ctx.player().getUniqueId(), cleaned, placeholders.resolve(ctx, value));
     }
