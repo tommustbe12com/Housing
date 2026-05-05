@@ -33,6 +33,7 @@ public final class HouseStorage {
         data.setTimeOfDay(yaml.getLong("timeOfDay", data.timeOfDay()));
         int cookies = yaml.getInt("cookies", 0);
         if (cookies != 0) data.addCookies(cookies);
+        data.setIconMaterial(yaml.getString("icon", data.iconMaterial()));
 
         if (yaml.isConfigurationSection("spawn")) {
             String worldName = yaml.getString("spawn.world");
@@ -56,6 +57,7 @@ public final class HouseStorage {
         yaml.set("maxPlayers", data.maxPlayers());
         yaml.set("timeOfDay", data.timeOfDay());
         yaml.set("cookies", data.cookies());
+        yaml.set("icon", data.iconMaterial());
         if (data.spawn() != null) {
             yaml.set("spawn.world", data.spawn().getWorld().getName());
             yaml.set("spawn.x", data.spawn().getX());

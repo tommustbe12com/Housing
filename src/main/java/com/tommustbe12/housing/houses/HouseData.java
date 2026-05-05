@@ -13,6 +13,7 @@ public final class HouseData {
     private long timeOfDay;
     private int cookies;
     private Location spawn;
+    private String iconMaterial;
 
     public HouseData(UUID owner, HouseSlot slot) {
         this.owner = owner;
@@ -22,6 +23,7 @@ public final class HouseData {
         this.timeOfDay = 6000L;
         this.cookies = 0;
         this.spawn = null;
+        this.iconMaterial = "GRASS_BLOCK";
     }
 
     public UUID owner() {
@@ -71,5 +73,12 @@ public final class HouseData {
     public void setSpawn(Location spawn) {
         this.spawn = spawn;
     }
-}
 
+    public String iconMaterial() {
+        return iconMaterial;
+    }
+
+    public void setIconMaterial(String iconMaterial) {
+        this.iconMaterial = iconMaterial;
+    }
+}

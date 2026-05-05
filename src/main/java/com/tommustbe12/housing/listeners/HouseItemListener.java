@@ -38,6 +38,7 @@ public final class HouseItemListener implements Listener {
     private static final String TITLE_HOT = "Hot Houses";
     private static final String TITLE_SYSTEMS = "Systems";
     private static final String TITLE_EVENT_ACTIONS = "Event Actions";
+    private static final String TITLE_ICON_PICKER = "Choose Icon";
 
     public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses) {
         this.plugin = plugin;
@@ -143,8 +144,30 @@ public final class HouseItemListener implements Listener {
         String displayName = ChatColor.translateAlternateColorCodes('&', data.name());
         List<String> lore = new ArrayList<>();
         lore.add("§7Click to join.");
+        lore.add("§7Right-click to change icon.");
         lore.add("§7Cookies: §6" + data.cookies());
-        return named(Material.GRASS_BLOCK, "§eHouse " + slot + ": §f" + displayName, lore);
+        Material icon = Material.matchMaterial(data.iconMaterial());
+        if (icon == null) icon = Material.GRASS_BLOCK;
+        return named(icon, "§eHouse " + slot + ": §f" + displayName, lore);
+    }
+
+    private void openIconPicker(Player player, int slotIndex) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_ICON_PICKER + " (Slot " + slotIndex + ")");
+        fill(inv);
+        // curated "cool" icons
+        Material[] icons = new Material[]{
+                Material.GRASS_BLOCK, Material.DIAMOND_SWORD, Material.NETHERITE_SWORD, Material.BOW,
+                Material.GOLDEN_APPLE, Material.ENDER_PEARL, Material.FIRE_CHARGE, Material.TOTEM_OF_UNDYING,
+                Material.CHEST, Material.REDSTONE, Material.BOOK, Material.WRITABLE_BOOK,
+                Material.BEACON, Material.DRAGON_EGG, Material.AMETHYST_SHARD, Material.CLOCK
+        };
+        int i = 0;
+        for (Material mat : icons) {
+            inv.setItem(10 + i, named(mat, "§a" + mat.name(), List.of("§7Click to set icon.")));
+            i++;
+        }
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to houses.")));
+        player.openInventory(inv);
     }
 
     private void openHotMenu(Player player) {
@@ -204,6 +227,13 @@ public final class HouseItemListener implements Listener {
                     houses.joinHouse(player, player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot));
                     player.closeInventory();
                 }
+                if (event.isRightClick()) {
+                    int raw = event.getRawSlot();
+                    int houseSlot = raw == 10 ? 1 : raw == 13 ? 2 : raw == 16 ? 3 : -1;
+                    if (houseSlot == -1) return;
+                    if (!houses.houseExists(player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot))) return;
+                    openIconPicker(player, houseSlot);
+                }
                 return;
             }
 
@@ -246,13 +276,35 @@ public final class HouseItemListener implements Listener {
                 }
                 player.sendMessage("§7Event actions editor is coming next.");
             }
+
+            if (title.startsWith(TITLE_ICON_PICKER)) {
+                if (clicked.getType() == Material.ARROW) {
+                    openHousesMenu(player);
+                    return;
+                }
+                // parse slot from title suffix
+                int slotIndex = 1;
+                int idx = title.indexOf("Slot ");
+                if (idx != -1) {
+                    try {
+                        slotIndex = Integer.parseInt(title.substring(idx + 5, idx + 6));
+                    } catch (Exception ignored) {
+                    }
+                }
+                var slot = com.tommustbe12.housing.houses.HouseSlot.fromIndex(slotIndex);
+                if (slot == null) return;
+                var data = houses.getHouse(player.getUniqueId(), slot);
+                data.setIconMaterial(clicked.getType().name());
+                houses.saveHouse(data);
+                openHousesMenu(player);
+            }
         }
     }
 
     @EventHandler
     public void onInvDrag(InventoryDragEvent event) {
         String title = event.getView().getTitle();
-        if (TITLE_MAIN.equals(title) || TITLE_HOUSES.equals(title) || TITLE_HOT.equals(title) || TITLE_SYSTEMS.equals(title) || TITLE_EVENT_ACTIONS.equals(title)) {
+        if (TITLE_MAIN.equals(title) || TITLE_HOUSES.equals(title) || TITLE_HOT.equals(title) || TITLE_SYSTEMS.equals(title) || TITLE_EVENT_ACTIONS.equals(title) || title.startsWith(TITLE_ICON_PICKER)) {
             event.setCancelled(true);
         }
     }

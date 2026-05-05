@@ -45,6 +45,7 @@ public final class OwnerTagService {
     public void applyOwner(Player player, UUID houseOwner) {
         boolean isOwner = player.getUniqueId().equals(houseOwner);
         if (isOwner) {
+            // Capture original names once per session before we mutate anything
             originals.putIfAbsent(player.getUniqueId(), new Original(player.getPlayerListName(), player.getDisplayName()));
             if (!ownerTeam.hasEntry(player.getName())) ownerTeam.addEntry(player.getName());
             player.setScoreboard(scoreboard);
@@ -58,14 +59,10 @@ public final class OwnerTagService {
 
     public void clear(Player player) {
         if (ownerTeam.hasEntry(player.getName())) ownerTeam.removeEntry(player.getName());
-        Original original = originals.remove(player.getUniqueId());
-        if (original != null) {
-            player.setPlayerListName(original.playerListName());
-            player.setDisplayName(original.displayName());
-        } else {
-            player.setPlayerListName(player.getName());
-            player.setDisplayName(player.getName());
-        }
+        originals.remove(player.getUniqueId());
+        // Always hard-reset to vanilla names to avoid sticky prefixes
+        player.setPlayerListName(player.getName());
+        player.setDisplayName(player.getName());
     }
 
     private record Original(String playerListName, String displayName) {

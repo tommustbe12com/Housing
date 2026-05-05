@@ -167,6 +167,20 @@ public final class HouseManager {
         return new HouseWorldInfo(house.data().owner(), house.data().slot());
     }
 
+    public Location getSpawn(UUID owner, HouseSlot slot) {
+        ActiveHouse activeHouse = active.get(id(owner, slot));
+        if (activeHouse != null) return activeHouse.spawn();
+        // If not active, derive default spawn for that house world name (may not be loaded)
+        World world = Bukkit.getWorld(worldName(owner, slot));
+        if (world == null) return null;
+        HouseData data = getHouse(owner, slot);
+        Location spawn = data.spawn();
+        if (spawn == null || spawn.getWorld() == null) {
+            return new Location(world, 0.5, starterY() + 1.0, 0.5, 0f, 0f);
+        }
+        return new Location(world, spawn.getX(), spawn.getY(), spawn.getZ(), spawn.getYaw(), spawn.getPitch());
+    }
+
     public void scheduleDeactivateIfEmpty(World world) {
         if (world == null) return;
         String id = worldToHouseId.get(world.getName());

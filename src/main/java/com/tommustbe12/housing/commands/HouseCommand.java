@@ -22,11 +22,16 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
     private final Plugin plugin;
     private final Debug debug;
     private final HouseManager houses;
+    private com.tommustbe12.housing.actions.HouseActionsService actions;
 
     public HouseCommand(Plugin plugin, Debug debug, HouseManager houses) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
+    }
+
+    public void setActions(com.tommustbe12.housing.actions.HouseActionsService actions) {
+        this.actions = actions;
     }
 
     @Override
@@ -149,6 +154,23 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
                 sender.sendMessage("§aDebug is now §f" + (!enabled) + "§a.");
                 return true;
             }
+            case "actions" -> {
+                if (!sender.isOp()) {
+                    sender.sendMessage("§cNo permission.");
+                    return true;
+                }
+                if (args.length >= 2 && args[1].equalsIgnoreCase("reload")) {
+                    if (actions != null) {
+                        actions.clearAll();
+                        sender.sendMessage("§aActions cache cleared. Rejoin a house to reload actions.");
+                    } else {
+                        sender.sendMessage("§cActions service not available.");
+                    }
+                    return true;
+                }
+                sender.sendMessage("§cUsage: /house actions reload");
+                return true;
+            }
         }
 
         sender.sendMessage("§cUnknown subcommand.");
@@ -158,7 +180,10 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return partial(args[0], List.of("join", "setname", "setspawn", "cookie", "debug"));
+            return partial(args[0], List.of("join", "setname", "setspawn", "cookie", "debug", "actions"));
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("actions")) {
+            return partial(args[1], List.of("reload"));
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("cookie")) {
             return partial(args[1], List.of("give"));

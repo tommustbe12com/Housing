@@ -1,6 +1,7 @@
 package com.tommustbe12.housing.listeners;
 
 import com.tommustbe12.housing.debug.Debug;
+import com.tommustbe12.housing.actions.HouseActionsService;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.inventory.InventoryService;
 import com.tommustbe12.housing.tags.OwnerTagService;
@@ -18,13 +19,15 @@ public final class HouseWorldLifecycleListener implements Listener {
     private final HouseManager houses;
     private final OwnerTagService ownerTags;
     private final InventoryService inventories;
+    private final HouseActionsService actions;
 
-    public HouseWorldLifecycleListener(Plugin plugin, Debug debug, HouseManager houses, OwnerTagService ownerTags, InventoryService inventories) {
+    public HouseWorldLifecycleListener(Plugin plugin, Debug debug, HouseManager houses, OwnerTagService ownerTags, InventoryService inventories, HouseActionsService actions) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
         this.ownerTags = ownerTags;
         this.inventories = inventories;
+        this.actions = actions;
     }
 
     @EventHandler
@@ -36,6 +39,7 @@ public final class HouseWorldLifecycleListener implements Listener {
 
         // Leaving a house world -> save that house inventory and schedule deactivate if empty
         if (fromInfo != null) {
+            actions.runEvent(fromInfo.owner(), fromInfo.slot(), event.getFrom(), player, "player_quit");
             inventories.saveHouseInventory(player, fromInfo.owner(), fromInfo.slot());
             houses.scheduleDeactivateIfEmpty(event.getFrom());
         }
@@ -47,6 +51,7 @@ public final class HouseWorldLifecycleListener implements Listener {
             }
             inventories.applyHouseInventoryOrDefault(player, toInfo.owner(), toInfo.slot());
             ownerTags.applyOwner(player, toInfo.owner());
+            actions.runEvent(toInfo.owner(), toInfo.slot(), player.getWorld(), player, "player_join");
         } else {
             // Leaving houses -> restore hub state
             if (fromInfo != null) {
