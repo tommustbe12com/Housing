@@ -1,9 +1,13 @@
 debug:
   enabled: true
 
+hub:
+  # Leave blank to use the server's default world.
+  world: ""
+
 houses:
   plot-size: 256
+  deactivate-seconds: 10
   starter-platform:
     size: 8
     y: 64
-

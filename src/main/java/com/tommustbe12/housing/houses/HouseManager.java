@@ -6,6 +6,8 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.permissions.PermissionAttachment;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.util.*;
@@ -17,6 +19,9 @@ public final class HouseManager {
     private final HouseStorage storage;
 
     private final Map<String, ActiveHouse> active = new ConcurrentHashMap<>();
+    private final Map<String, BukkitTask> deactivateTasks = new ConcurrentHashMap<>();
+    private final Map<String, String> worldToHouseId = new ConcurrentHashMap<>();
+    private final Map<UUID, PermissionAttachment> ownerAttachments = new ConcurrentHashMap<>();
 
     public HouseManager(Plugin plugin, Debug debug) {
         this.plugin = plugin;
@@ -32,10 +37,24 @@ public final class HouseManager {
         storage.save(data);
     }
 
+    public boolean houseExists(UUID owner, HouseSlot slot) {
+        return storage.fileExists(owner, slot);
+    }
+
+    public void createIfMissing(UUID owner, HouseSlot slot) {
+        if (houseExists(owner, slot)) return;
+        HouseData data = new HouseData(owner, slot);
+        saveHouse(data);
+        debug.toOps("Created new house data owner=" + owner + " slot=" + slot.index());
+    }
+
     public ActiveHouse startOrGetActiveHouse(UUID owner, HouseSlot slot) {
         String id = id(owner, slot);
         ActiveHouse existing = active.get(id);
-        if (existing != null) return existing;
+        if (existing != null) {
+            cancelDeactivate(id);
+            return existing;
+        }
 
         HouseData data = getHouse(owner, slot);
         debug.toOps("Starting house " + id + " (name=" + data.name() + ")");
@@ -57,6 +76,7 @@ public final class HouseManager {
 
         ActiveHouse activeHouse = new ActiveHouse(id, data, world, spawn);
         active.put(id, activeHouse);
+        worldToHouseId.put(world.getName(), id);
         return activeHouse;
     }
 
@@ -72,11 +92,25 @@ public final class HouseManager {
 
         debug.toOps(player.getName() + " joining house " + activeHouse.id());
         player.teleport(activeHouse.spawn());
-        player.setGameMode(GameMode.ADVENTURE);
+        boolean isOwner = player.getUniqueId().equals(owner);
+        player.setGameMode(isOwner ? GameMode.CREATIVE : GameMode.ADVENTURE);
+        if (isOwner) {
+            grantOwnerPerms(player);
+        } else {
+            revokeOwnerPerms(player.getUniqueId());
+        }
         player.setAllowFlight(true);
         player.setFlying(false);
         player.sendMessage("§aJoining §f" + ChatColor.translateAlternateColorCodes('&', data.name()) + "§a...");
         return true;
+    }
+
+    public void sendToHub(Player player) {
+        String hubWorldName = plugin.getConfig().getString("hub.world", "");
+        World hub = hubWorldName == null || hubWorldName.isBlank() ? Bukkit.getWorlds().getFirst() : Bukkit.getWorld(hubWorldName);
+        if (hub == null) hub = Bukkit.getWorlds().getFirst();
+        player.teleport(hub.getSpawnLocation());
+        player.sendMessage("§aReturned to the hub.");
     }
 
     public void addCookie(UUID owner, HouseSlot slot, int amount) {
@@ -91,12 +125,12 @@ public final class HouseManager {
 
         List<HouseData> all = new ArrayList<>();
         for (File file : files) {
-            String base = file.getName().replace(".yml", "");
-            String[] parts = base.split("-");
-            if (parts.length < 2) continue;
             try {
-                UUID owner = UUID.fromString(parts[0]);
-                int slotIndex = Integer.parseInt(parts[1]);
+                String base = file.getName().substring(0, file.getName().length() - 4); // trim .yml
+                int dash = base.lastIndexOf('-');
+                if (dash <= 0 || dash >= base.length() - 1) continue;
+                UUID owner = UUID.fromString(base.substring(0, dash));
+                int slotIndex = Integer.parseInt(base.substring(dash + 1));
                 HouseSlot slot = HouseSlot.fromIndex(slotIndex);
                 if (slot == null) continue;
                 all.add(getHouse(owner, slot));
@@ -113,7 +147,74 @@ public final class HouseManager {
         for (ActiveHouse house : active.values()) {
             debug.toOps("Shutting down active house " + house.id());
         }
+        for (UUID uuid : ownerAttachments.keySet()) {
+            revokeOwnerPerms(uuid);
+        }
+        for (BukkitTask task : deactivateTasks.values()) {
+            task.cancel();
+        }
+        deactivateTasks.clear();
+        worldToHouseId.clear();
         active.clear();
+    }
+
+    public HouseWorldInfo getHouseInfoByWorld(World world) {
+        if (world == null) return null;
+        String id = worldToHouseId.get(world.getName());
+        if (id == null) return null;
+        ActiveHouse house = active.get(id);
+        if (house == null) return null;
+        return new HouseWorldInfo(house.data().owner(), house.data().slot());
+    }
+
+    public void scheduleDeactivateIfEmpty(World world) {
+        if (world == null) return;
+        String id = worldToHouseId.get(world.getName());
+        if (id == null) return;
+        if (!world.getPlayers().isEmpty()) return;
+
+        cancelDeactivate(id);
+        int seconds = plugin.getConfig().getInt("houses.deactivate-seconds", 10);
+        debug.toOps("Scheduling deactivate for " + id + " in " + seconds + "s");
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> deactivateWorldIfStillEmpty(world.getName()), seconds * 20L);
+        deactivateTasks.put(id, task);
+    }
+
+    private void deactivateWorldIfStillEmpty(String worldName) {
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) return;
+        if (!world.getPlayers().isEmpty()) return;
+
+        String id = worldToHouseId.get(worldName);
+        if (id == null) return;
+        debug.toOps("Deactivating house " + id + " due to inactivity");
+
+        cancelDeactivate(id);
+        worldToHouseId.remove(worldName);
+        active.remove(id);
+        Bukkit.unloadWorld(world, true);
+    }
+
+    private void cancelDeactivate(String id) {
+        BukkitTask task = deactivateTasks.remove(id);
+        if (task != null) task.cancel();
+    }
+
+    private void grantOwnerPerms(Player player) {
+        PermissionAttachment existing = ownerAttachments.get(player.getUniqueId());
+        if (existing != null) return;
+        PermissionAttachment attachment = player.addAttachment(plugin);
+        attachment.setPermission("minecraft.command.gamemode", true);
+        attachment.setPermission("minecraft.command.gamemode.creative", true);
+        attachment.setPermission("minecraft.command.gamemode.survival", true);
+        attachment.setPermission("minecraft.command.gamemode.adventure", true);
+        attachment.setPermission("minecraft.command.time", true);
+        ownerAttachments.put(player.getUniqueId(), attachment);
+    }
+
+    private void revokeOwnerPerms(UUID playerId) {
+        PermissionAttachment attachment = ownerAttachments.remove(playerId);
+        if (attachment != null) attachment.remove();
     }
 
     private World createOrLoadWorld(String name) {
@@ -162,7 +263,9 @@ public final class HouseManager {
     public record ActiveHouse(String id, HouseData data, World world, Location spawn) {
     }
 
+    public record HouseWorldInfo(UUID owner, HouseSlot slot) {
+    }
+
     private static final class EmptyVoidGenerator extends ChunkGenerator {
     }
 }
-

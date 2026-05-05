@@ -3,28 +3,49 @@ package com.tommustbe12.housing.listeners;
 import com.tommustbe12.housing.debug.Debug;
 import com.tommustbe12.housing.houses.HouseManager;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.persistence.PersistentDataType;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public final class HouseItemListener implements Listener {
     private final Plugin plugin;
     private final Debug debug;
     private final HouseManager houses;
 
+    private final NamespacedKey housingItemKey;
+    private final NamespacedKey hotOwnerKey;
+    private final NamespacedKey hotSlotKey;
+
+    private static final String TITLE_MAIN = "Housing";
+    private static final String TITLE_HOUSES = "Your Houses";
+    private static final String TITLE_HOT = "Hot Houses";
+    private static final String TITLE_SYSTEMS = "Systems";
+    private static final String TITLE_EVENT_ACTIONS = "Event Actions";
+
     public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
+        this.housingItemKey = new NamespacedKey(plugin, "housing_item");
+        this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
+        this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
     }
 
     @EventHandler
@@ -34,9 +55,7 @@ public final class HouseItemListener implements Listener {
 
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.NETHER_STAR) return;
-        if (!item.hasItemMeta()) return;
-        if (!"Housing Menu".equals(item.getItemMeta().getDisplayName())) return;
+        if (!isHousingMenuItem(item)) return;
 
         event.setCancelled(true);
         openMainMenu(player);
@@ -46,18 +65,196 @@ public final class HouseItemListener implements Listener {
     public void giveMenuItem(Player player) {
         ItemStack star = new ItemStack(Material.NETHER_STAR);
         ItemMeta meta = star.getItemMeta();
-        meta.setDisplayName("Housing Menu");
+        meta.setDisplayName("§bHousing");
         meta.setLore(List.of("§7Right-click to open"));
+        meta.getPersistentDataContainer().set(housingItemKey, PersistentDataType.BYTE, (byte) 1);
         star.setItemMeta(meta);
         player.getInventory().setItem(8, star);
     }
 
     private void openMainMenu(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, "Housing");
-        inv.setItem(11, named(Material.REPEATER, "§bSystems", List.of("§7Coming soon: regions, actions, commands...")));
-        inv.setItem(13, named(Material.COOKIE, "§6Cookies", List.of("§7Use §f/house cookie give§7 to rate houses.")));
-        inv.setItem(15, named(Material.NETHER_STAR, "§eMy House", List.of("§7Use §f/house join <you> <slot>§7.")));
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_MAIN);
+        fill(inv);
+        inv.setItem(11, named(Material.OAK_DOOR, "§aYour Houses", List.of("§7Create or join your houses.")));
+        inv.setItem(13, named(Material.REPEATER, "§bSystems", List.of("§7Customize your house.")));
+        inv.setItem(15, named(Material.FIREWORK_STAR, "§6Hot Houses", List.of("§7Top houses by cookies.")));
+        inv.setItem(26, named(Material.BARRIER, "§cBack to Hub", List.of("§7Teleport back to the hub.")));
         player.openInventory(inv);
+    }
+
+    private void openSystemsMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_SYSTEMS);
+        fill(inv);
+        inv.setItem(10, named(Material.GRASS_BLOCK, "§aRegions", List.of("§7Coming in a later version.")));
+        inv.setItem(12, named(Material.REDSTONE, "§eEvent Actions", List.of("§7Configure triggers (V1 scaffold).")));
+        inv.setItem(14, named(Material.OAK_SIGN, "§bScoreboard Editor", List.of("§7Coming in a later version.")));
+        inv.setItem(16, named(Material.COMMAND_BLOCK, "§dCommands", List.of("§7Coming in a later version.")));
+        inv.setItem(28, named(Material.BOOK, "§fFunctions", List.of("§7Coming in a later version.")));
+        inv.setItem(30, named(Material.CHEST, "§6Inventory Layouts", List.of("§7Coming in a later version.")));
+        inv.setItem(32, named(Material.PLAYER_HEAD, "§9Teams", List.of("§7Coming in a later version.")));
+        inv.setItem(34, named(Material.ITEM_FRAME, "§aCustom Menus", List.of("§7Coming in a later version.")));
+        inv.setItem(38, named(Material.ARMOR_STAND, "§eNPCs", List.of("§7Coming in a later version.")));
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to main menu.")));
+        player.openInventory(inv);
+    }
+
+    private void openEventActionsMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_EVENT_ACTIONS);
+        fill(inv);
+        inv.setItem(10, named(Material.LIME_DYE, "§aPlayer Join", List.of("§7Coming soon.")));
+        inv.setItem(11, named(Material.GRAY_DYE, "§7Player Quit", List.of("§7Coming soon.")));
+        inv.setItem(12, named(Material.RED_DYE, "§cPlayer Death", List.of("§7Coming soon.")));
+        inv.setItem(13, named(Material.IRON_SWORD, "§ePlayer Kill", List.of("§7Coming soon.")));
+        inv.setItem(14, named(Material.TOTEM_OF_UNDYING, "§bPlayer Respawn", List.of("§7Coming soon.")));
+
+        inv.setItem(16, named(Material.NAME_TAG, "§dGroup Change", List.of("§7Coming soon.")));
+        inv.setItem(19, named(Material.SHIELD, "§ePvP State Change", List.of("§7Coming soon.")));
+        inv.setItem(20, named(Material.FISHING_ROD, "§bFish Caught", List.of("§7Coming soon.")));
+        inv.setItem(21, named(Material.ENDER_PEARL, "§aEnter Portal", List.of("§7Coming soon.")));
+        inv.setItem(22, named(Material.ANVIL, "§cPlayer Damage", List.of("§7Coming soon.")));
+
+        inv.setItem(24, named(Material.DIAMOND_PICKAXE, "§eBlock Break", List.of("§7Coming soon.")));
+        inv.setItem(25, named(Material.DROPPER, "§eDrop Item", List.of("§7Coming soon.")));
+        inv.setItem(28, named(Material.HOPPER, "§ePick Up Item", List.of("§7Coming soon.")));
+        inv.setItem(29, named(Material.STICK, "§bHeld Item Change", List.of("§7Coming soon.")));
+        inv.setItem(30, named(Material.FEATHER, "§aToggle Sneak", List.of("§7Coming soon.")));
+        inv.setItem(31, named(Material.ELYTRA, "§bToggle Flight", List.of("§7Coming soon.")));
+
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to systems.")));
+        player.openInventory(inv);
+    }
+
+    private void openHousesMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_HOUSES);
+        fill(inv);
+        inv.setItem(10, houseSlotItem(player.getUniqueId(), 1));
+        inv.setItem(13, houseSlotItem(player.getUniqueId(), 2));
+        inv.setItem(16, houseSlotItem(player.getUniqueId(), 3));
+        inv.setItem(22, named(Material.ARROW, "§7Back", List.of("§7Return to main menu.")));
+        player.openInventory(inv);
+    }
+
+    private ItemStack houseSlotItem(UUID owner, int slot) {
+        var data = houses.getHouse(owner, com.tommustbe12.housing.houses.HouseSlot.fromIndex(slot));
+        boolean exists = houses.houseExists(owner, com.tommustbe12.housing.houses.HouseSlot.fromIndex(slot));
+        if (!exists) {
+            return named(Material.OAK_BUTTON, "§aCreate House (Slot " + slot + ")", List.of("§7Click to create and join."));
+        }
+        String displayName = ChatColor.translateAlternateColorCodes('&', data.name());
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Click to join.");
+        lore.add("§7Cookies: §6" + data.cookies());
+        return named(Material.GRASS_BLOCK, "§eHouse " + slot + ": §f" + displayName, lore);
+    }
+
+    private void openHotMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_HOT);
+        fill(inv);
+        var top = houses.topHousesByCookies(45);
+        int slot = 0;
+        for (var data : top) {
+            String name = ChatColor.translateAlternateColorCodes('&', data.name());
+            ItemStack item = named(Material.CAKE, "§6" + name, List.of("§7Cookies: §6" + data.cookies(), "§7Click to join."));
+            ItemMeta meta = item.getItemMeta();
+            meta.getPersistentDataContainer().set(hotOwnerKey, PersistentDataType.STRING, data.owner().toString());
+            meta.getPersistentDataContainer().set(hotSlotKey, PersistentDataType.INTEGER, data.slot().index());
+            item.setItemMeta(meta);
+            inv.setItem(slot++, item);
+        }
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to main menu.")));
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onInvClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getView().getType() == InventoryType.CHEST) {
+            String title = event.getView().getTitle();
+            if (!TITLE_MAIN.equals(title) && !TITLE_HOUSES.equals(title) && !TITLE_HOT.equals(title) && !TITLE_SYSTEMS.equals(title) && !TITLE_EVENT_ACTIONS.equals(title)) return;
+
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType().isAir()) return;
+
+            if (TITLE_MAIN.equals(title)) {
+                switch (clicked.getType()) {
+                    case OAK_DOOR -> openHousesMenu(player);
+                    case REPEATER -> openSystemsMenu(player);
+                    case FIREWORK_STAR -> openHotMenu(player);
+                    case BARRIER -> {
+                        houses.sendToHub(player);
+                        player.closeInventory();
+                    }
+                    default -> {
+                    }
+                }
+                return;
+            }
+
+            if (TITLE_HOUSES.equals(title)) {
+                if (clicked.getType() == Material.ARROW) {
+                    openMainMenu(player);
+                    return;
+                }
+                if (clicked.getType() == Material.OAK_BUTTON || clicked.getType() == Material.GRASS_BLOCK) {
+                    int raw = event.getRawSlot();
+                    int houseSlot = raw == 10 ? 1 : raw == 13 ? 2 : raw == 16 ? 3 : -1;
+                    if (houseSlot == -1) return;
+                    houses.createIfMissing(player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot));
+                    houses.joinHouse(player, player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot));
+                    player.closeInventory();
+                }
+                return;
+            }
+
+            if (TITLE_HOT.equals(title)) {
+                if (clicked.getType() == Material.ARROW) {
+                    openMainMenu(player);
+                    return;
+                }
+                ItemMeta meta = clicked.getItemMeta();
+                if (meta == null) return;
+                String ownerStr = meta.getPersistentDataContainer().get(hotOwnerKey, PersistentDataType.STRING);
+                Integer slotIndex = meta.getPersistentDataContainer().get(hotSlotKey, PersistentDataType.INTEGER);
+                if (ownerStr == null || slotIndex == null) return;
+                try {
+                    UUID owner = UUID.fromString(ownerStr);
+                    var houseSlot = com.tommustbe12.housing.houses.HouseSlot.fromIndex(slotIndex);
+                    if (houseSlot == null) return;
+                    houses.joinHouse(player, owner, houseSlot);
+                    player.closeInventory();
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+
+            if (TITLE_SYSTEMS.equals(title)) {
+                if (clicked.getType() == Material.ARROW) {
+                    openMainMenu(player);
+                    return;
+                }
+                if (clicked.getType() == Material.REDSTONE) {
+                    openEventActionsMenu(player);
+                    return;
+                }
+                player.sendMessage("§7That system is coming in a later version.");
+            }
+
+            if (TITLE_EVENT_ACTIONS.equals(title)) {
+                if (clicked.getType() == Material.ARROW) {
+                    openSystemsMenu(player);
+                    return;
+                }
+                player.sendMessage("§7Event actions editor is coming next.");
+            }
+        }
+    }
+
+    @EventHandler
+    public void onInvDrag(InventoryDragEvent event) {
+        String title = event.getView().getTitle();
+        if (TITLE_MAIN.equals(title) || TITLE_HOUSES.equals(title) || TITLE_HOT.equals(title) || TITLE_SYSTEMS.equals(title) || TITLE_EVENT_ACTIONS.equals(title)) {
+            event.setCancelled(true);
+        }
     }
 
     private static ItemStack named(Material mat, String name, List<String> lore) {
@@ -68,5 +265,20 @@ public final class HouseItemListener implements Listener {
         item.setItemMeta(meta);
         return item;
     }
-}
 
+    private static void fill(Inventory inv) {
+        ItemStack filler = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
+        for (int i = 0; i < inv.getSize(); i++) {
+            if (inv.getItem(i) == null) inv.setItem(i, filler);
+        }
+    }
+
+    private boolean isHousingMenuItem(ItemStack item) {
+        if (item == null) return false;
+        if (item.getType() != Material.NETHER_STAR) return false;
+        if (!item.hasItemMeta()) return false;
+        ItemMeta meta = item.getItemMeta();
+        Byte marker = meta.getPersistentDataContainer().get(housingItemKey, PersistentDataType.BYTE);
+        return marker != null && marker == (byte) 1;
+    }
+}

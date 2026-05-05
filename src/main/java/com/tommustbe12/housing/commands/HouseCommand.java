@@ -32,11 +32,10 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("§bHousing§7: §f/house join <player> <slot>");
+            sender.sendMessage("§bHousing§7: §fUse the §bHousing §7nether star menu.");
             sender.sendMessage("§bHousing§7: §f/house setname <slot> <name...>");
             sender.sendMessage("§bHousing§7: §f/house setspawn <slot>");
             sender.sendMessage("§bHousing§7: §f/house cookie give <player> <slot> [amount]");
-            sender.sendMessage("§bHousing§7: §f/house hot");
             return true;
         }
 
@@ -51,7 +50,8 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
                     return true;
                 }
                 OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-                if (target.getUniqueId() == null) {
+                UUID owner = target.getUniqueId();
+                if (owner == null) {
                     player.sendMessage("§cUnknown player.");
                     return true;
                 }
@@ -60,7 +60,8 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
                     player.sendMessage("§cSlot must be 1-3.");
                     return true;
                 }
-                return houses.joinHouse(player, target.getUniqueId(), slot);
+                houses.createIfMissing(owner, slot);
+                return houses.joinHouse(player, owner, slot);
             }
             case "setname" -> {
                 if (!(sender instanceof Player player)) return true;
@@ -134,20 +135,7 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
                 return true;
             }
             case "hot" -> {
-                List<HouseData> top = houses.topHousesByCookies(10);
-                sender.sendMessage("§6Hot Houses§7 (Top by cookies)");
-                if (top.isEmpty()) {
-                    sender.sendMessage("§7No houses yet.");
-                    return true;
-                }
-                int rank = 1;
-                for (HouseData data : top) {
-                    OfflinePlayer owner = Bukkit.getOfflinePlayer(data.owner());
-                    String ownerName = owner.getName() == null ? data.owner().toString() : owner.getName();
-                    sender.sendMessage("§e#" + rank + " §f" + ChatColor.translateAlternateColorCodes('&', data.name()) +
-                            " §7- §b" + ownerName + "§7 (slot " + data.slot().index() + ") §6" + data.cookies() + " cookies");
-                    rank++;
-                }
+                sender.sendMessage("§cHot Houses is GUI-only in V1. Use the nether star menu.");
                 return true;
             }
             case "debug" -> {
@@ -170,7 +158,7 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return partial(args[0], List.of("join", "setname", "setspawn", "cookie", "hot", "debug"));
+            return partial(args[0], List.of("join", "setname", "setspawn", "cookie", "debug"));
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("cookie")) {
             return partial(args[1], List.of("give"));
@@ -212,4 +200,3 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
         return out;
     }
 }
-

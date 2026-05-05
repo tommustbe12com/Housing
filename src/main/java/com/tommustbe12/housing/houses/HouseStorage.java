@@ -75,8 +75,11 @@ public final class HouseStorage {
         return new File(housesDir, owner + "-" + slot.index() + ".yml");
     }
 
+    public boolean fileExists(UUID owner, HouseSlot slot) {
+        return fileFor(owner, slot).exists();
+    }
+
     public File housesDir() {
         return housesDir;
     }
 }
-
