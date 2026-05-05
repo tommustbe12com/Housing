@@ -4,6 +4,7 @@ import com.tommustbe12.housing.debug.Debug;
 import com.tommustbe12.housing.gui.ActionsEditor;
 import com.tommustbe12.housing.gui.FunctionsGui;
 import com.tommustbe12.housing.gui.ConditionalGui;
+import com.tommustbe12.housing.gui.ScoreboardEditorGui;
 import com.tommustbe12.housing.houses.HouseManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -34,6 +35,7 @@ public final class HouseItemListener implements Listener {
     private final ActionsEditor actionsEditor;
     private final FunctionsGui functionsGui;
     private final ConditionalGui conditionalGui;
+    private final ScoreboardEditorGui scoreboardEditorGui;
 
     private final NamespacedKey housingItemKey;
     private final NamespacedKey hotOwnerKey;
@@ -47,13 +49,14 @@ public final class HouseItemListener implements Listener {
     private static final String TITLE_ICON_PICKER = "Choose Icon";
     private static final String TITLE_DELETE_CONFIRM = "Delete House?";
 
-    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor, FunctionsGui functionsGui, ConditionalGui conditionalGui) {
+    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor, FunctionsGui functionsGui, ConditionalGui conditionalGui, ScoreboardEditorGui scoreboardEditorGui) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
         this.actionsEditor = actionsEditor;
         this.functionsGui = functionsGui;
         this.conditionalGui = conditionalGui;
+        this.scoreboardEditorGui = scoreboardEditorGui;
         this.housingItemKey = new NamespacedKey(plugin, "housing_item");
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
@@ -106,7 +109,7 @@ public final class HouseItemListener implements Listener {
         fill(inv);
         inv.setItem(10, named(Material.GRASS_BLOCK, "§aRegions", List.of("§7Coming in a later version.")));
         inv.setItem(12, named(Material.REDSTONE, "§eEvent Actions", List.of("§7Configure triggers (V1 scaffold).")));
-        inv.setItem(14, named(Material.OAK_SIGN, "§bScoreboard Editor", List.of("§7Coming in a later version.")));
+        inv.setItem(14, named(Material.OAK_SIGN, "§bScoreboard Editor", List.of("§7Edit your house scoreboard.")));
         inv.setItem(16, named(Material.COMMAND_BLOCK, "§dCommands", List.of("§7Coming in a later version.")));
         inv.setItem(28, named(Material.BOOK, "§fFunctions", List.of("§7Create reusable action lists.")));
         inv.setItem(30, named(Material.CHEST, "§6Inventory Layouts", List.of("§7Coming in a later version.")));
@@ -230,6 +233,7 @@ public final class HouseItemListener implements Listener {
                     && actionsEditor.isFunctionPickerTitle(title) == false
                     && !functionsGui.isTitle(title)
                     && (conditionalGui == null || !conditionalGui.isTitle(title))
+                    && (scoreboardEditorGui == null || !scoreboardEditorGui.isTitle(title))
                     && !title.startsWith(TITLE_ICON_PICKER)
                     && !title.startsWith(TITLE_DELETE_CONFIRM)) return;
 
@@ -252,6 +256,10 @@ public final class HouseItemListener implements Listener {
             }
             if (conditionalGui != null && conditionalGui.isTitle(title)) {
                 conditionalGui.handleClick(player, title, clicked, event.getClick());
+                return;
+            }
+            if (scoreboardEditorGui != null && scoreboardEditorGui.isTitle(title)) {
+                scoreboardEditorGui.handleClick(player, event.getRawSlot(), clicked, () -> openSystemsMenu(player));
                 return;
             }
             if (functionsGui.isTitle(title)) {
@@ -343,6 +351,12 @@ public final class HouseItemListener implements Listener {
                 }
                 if (clicked.getType() == Material.REDSTONE) {
                     openEventActionsMenu(player);
+                    return;
+                }
+                if (clicked.getType() == Material.OAK_SIGN) {
+                    var info = houses.getHouseInfoByWorld(player.getWorld());
+                    if (info == null || !info.owner().equals(player.getUniqueId())) return;
+                    scoreboardEditorGui.open(player, info.owner(), info.slot());
                     return;
                 }
                 if (clicked.getType() == Material.BOOK) {
@@ -447,6 +461,7 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isFunctionPickerTitle(title)
                 || functionsGui.isTitle(title)
                 || (conditionalGui != null && conditionalGui.isTitle(title))
+                || (scoreboardEditorGui != null && scoreboardEditorGui.isTitle(title))
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)) {
             event.setCancelled(true);

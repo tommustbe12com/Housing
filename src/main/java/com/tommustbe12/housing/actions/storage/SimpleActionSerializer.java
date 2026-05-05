@@ -7,6 +7,7 @@ import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.RunFunctionAction;
 import com.tommustbe12.housing.actions.impl.ConditionalAction;
 import com.tommustbe12.housing.actions.conditions.*;
+import com.tommustbe12.housing.util.ItemStackSerialization;
 import com.tommustbe12.housing.actions.impl.DisplayActionBarAction;
 import com.tommustbe12.housing.actions.impl.DisplayTitleAction;
 import com.tommustbe12.housing.actions.impl.SendChatMessageAction;
@@ -65,6 +66,7 @@ public final class SimpleActionSerializer implements ActionSerializer {
         if (c instanceof PlayerHealthCondition ph) { out.put("op", ph.op().name()); out.put("value", ph.value()); }
         if (c instanceof MaxHealthCondition mh) { out.put("op", mh.op().name()); out.put("value", mh.value()); }
         if (c instanceof PlayerHungerCondition hg) { out.put("op", hg.op().name()); out.put("value", hg.value()); }
+        if (c instanceof HasItemCondition hi) out.put("item", ItemStackSerialization.toBase64(hi.item()));
         return out;
     }
 }

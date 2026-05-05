@@ -86,6 +86,12 @@ public final class ActionsEditor {
         openList(player, session);
     }
 
+    public void openStandaloneHouse(Player player, UUID owner, HouseSlot slot, String key, ActionList list, Consumer<ActionList> onSave, Runnable back) {
+        Session session = Session.forStandaloneHouse(owner, slot, key.toLowerCase(Locale.ROOT), list, onSave, back);
+        sessions.put(player.getUniqueId(), session);
+        openList(player, session);
+    }
+
     public void handleClick(Player player, String title, int rawSlot, ItemStack clicked, org.bukkit.event.inventory.ClickType clickType, Runnable fallbackBack) {
         Session session = sessions.get(player.getUniqueId());
         if (session == null) return;
@@ -196,7 +202,7 @@ public final class ActionsEditor {
                 ConditionalAction cond = new ConditionalAction(placeholders, List.of(), false, new ActionList(), new ActionList());
                 list.actions().add(cond);
                 int idx = list.actions().size() - 1;
-                conditionalGui.open(player, cond, updated -> {
+                conditionalGui.open(player, session.owner, session.slot, cond, updated -> {
                     list.actions().set(idx, updated);
                     save(session);
                 }, () -> openList(player, session));
@@ -258,7 +264,7 @@ public final class ActionsEditor {
     private void openFunctionPicker(Player player) {
         Session session = sessions.get(player.getUniqueId());
         if (session == null) return;
-        if (session.kind == Kind.STANDALONE) {
+        if (session.kind == Kind.STANDALONE && session.owner.getMostSignificantBits() == 0L && session.owner.getLeastSignificantBits() == 0L) {
             player.sendMessage("§cRun Function is only available for house events/functions.");
             return;
         }
@@ -330,13 +336,10 @@ public final class ActionsEditor {
             return;
         }
         if (action instanceof RunFunctionAction fn) {
-            prompt(player, "Edit function name,scope (name,global|personal):", msg -> {
-                String[] parts = msg.split(",", 2);
-                if (parts.length < 2) return;
-                list.actions().set(index, new RunFunctionAction((ctx, f, g) -> {}, parts[0].trim(), parts[1].trim().equalsIgnoreCase("global")));
-                save(session);
-                openList(player, session);
-            });
+            boolean nextGlobal = !fn.global();
+            list.actions().set(index, new RunFunctionAction((ctx, f, g) -> {}, fn.functionName(), nextGlobal));
+            save(session);
+            openList(player, session);
             return;
         }
         if (action instanceof ConditionalAction cond) {
@@ -344,7 +347,7 @@ public final class ActionsEditor {
                 player.sendMessage("§cConditional editor not available.");
                 return;
             }
-            conditionalGui.open(player, cond, updated -> {
+            conditionalGui.open(player, session.owner, session.slot, cond, updated -> {
                 list.actions().set(index, updated);
                 save(session);
             }, () -> openList(player, session));
@@ -469,9 +472,12 @@ public final class ActionsEditor {
             return new Session(Kind.STANDALONE, key, new UUID(0L, 0L), HouseSlot.SLOT_1, new HashMap<>(), list, onSave, back);
         }
 
+        static Session forStandaloneHouse(UUID owner, HouseSlot slot, String key, ActionList list, Consumer<ActionList> onSave, Runnable back) {
+            return new Session(Kind.STANDALONE, key, owner, slot, new HashMap<>(), list, onSave, back);
+        }
+
         ActionList list() {
             return kind == Kind.STANDALONE ? standalone : events.computeIfAbsent(key, k -> new ActionList());
         }
     }
 }
-

@@ -24,6 +24,7 @@ public final class ConditionalGui {
     private static final String TITLE_SETTINGS = "Action Settings";
     private static final String TITLE_CONDITIONS = "Edit Conditions";
     private static final String TITLE_ADD_COND = "Add Condition";
+    private static final String TITLE_SET_ITEM = "Set Required Item";
 
     private final Plugin plugin;
     private final ChatPrompts prompts;
@@ -43,11 +44,11 @@ public final class ConditionalGui {
     }
 
     public boolean isTitle(String title) {
-        return TITLE_SETTINGS.equals(title) || TITLE_CONDITIONS.equals(title) || TITLE_ADD_COND.equals(title);
+        return TITLE_SETTINGS.equals(title) || TITLE_CONDITIONS.equals(title) || TITLE_ADD_COND.equals(title) || TITLE_SET_ITEM.equals(title);
     }
 
-    public void open(Player player, ConditionalAction conditional, Consumer<ConditionalAction> onSave, Runnable back) {
-        sessions.put(player.getUniqueId(), new Session(conditional, onSave, back));
+    public void open(Player player, UUID owner, com.tommustbe12.housing.houses.HouseSlot slot, ConditionalAction conditional, Consumer<ConditionalAction> onSave, Runnable back) {
+        sessions.put(player.getUniqueId(), new Session(owner, slot, conditional, onSave, back));
         openSettings(player);
     }
 
@@ -63,11 +64,11 @@ public final class ConditionalGui {
                     session.matchAny = !session.matchAny;
                     openSettings(player);
                 }
-                case LIME_CONCRETE -> actionsEditor.openStandalone(player, "if_actions", session.thenList, updated -> {
+                case LIME_CONCRETE -> actionsEditor.openStandaloneHouse(player, session.owner, session.slot, "if_actions", session.thenList, updated -> {
                     session.thenList = updated;
                     save(session);
                 }, () -> openSettings(player));
-                case RED_CONCRETE -> actionsEditor.openStandalone(player, "else_actions", session.elseList, updated -> {
+                case RED_CONCRETE -> actionsEditor.openStandaloneHouse(player, session.owner, session.slot, "else_actions", session.elseList, updated -> {
                     session.elseList = updated;
                     save(session);
                 }, () -> openSettings(player));
@@ -113,6 +114,23 @@ public final class ConditionalGui {
                 return;
             }
             addConditionFromIcon(player, session, clicked.getType());
+        }
+
+        if (TITLE_SET_ITEM.equals(title)) {
+            // confirm/cancel
+            if (clicked.getType() == Material.LIME_CONCRETE) {
+                ItemStack item = player.getOpenInventory().getTopInventory().getItem(13);
+                if (item == null || item.getType().isAir()) {
+                    player.sendMessage("§cPlace an item in the middle slot first.");
+                    return;
+                }
+                session.pendingItemConsumer.accept(item.clone());
+                session.pendingItemConsumer = null;
+                openConditions(player);
+            } else if (clicked.getType() == Material.RED_CONCRETE) {
+                session.pendingItemConsumer = null;
+                openConditions(player);
+            }
         }
     }
 
@@ -184,14 +202,11 @@ public final class ConditionalGui {
             return;
         }
         if (icon == Material.CHEST) {
-            ItemStack held = player.getInventory().getItemInMainHand();
-            if (held == null || held.getType().isAir()) {
-                player.sendMessage("§cHold the required item in your main hand first.");
-                return;
-            }
-            s.conditions.add(new HasItemCondition(held.clone()));
-            save(s);
-            openConditions(player);
+            openSetItemGui(player, s, item -> {
+                s.conditions.add(new HasItemCondition(item));
+                save(s);
+                openConditions(player);
+            });
             return;
         }
         if (icon == Material.POTION) {
@@ -238,6 +253,16 @@ public final class ConditionalGui {
             save(s);
             openConditions(player);
         }
+    }
+
+    private void openSetItemGui(Player player, Session s, Consumer<ItemStack> onSet) {
+        s.pendingItemConsumer = onSet;
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_SET_ITEM);
+        fill(inv);
+        inv.setItem(11, named(Material.LIME_CONCRETE, "§aSave", List.of("§7Save this item as requirement.")));
+        inv.setItem(15, named(Material.RED_CONCRETE, "§cCancel", List.of("§7Return without saving.")));
+        inv.setItem(13, null); // empty slot for item
+        player.openInventory(inv);
     }
 
     private void editCondition(Player player, Session s, int idx) {
@@ -383,17 +408,23 @@ public final class ConditionalGui {
     private static void fill(Inventory inv) {
         ItemStack filler = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
+        inv.setItem(13, null);
     }
 
     private static final class Session {
+        private final UUID owner;
+        private final com.tommustbe12.housing.houses.HouseSlot slot;
         private final List<Condition> conditions;
         private boolean matchAny;
         private ActionList thenList;
         private ActionList elseList;
         private final Consumer<ConditionalAction> onSave;
         private final Runnable back;
+        private Consumer<ItemStack> pendingItemConsumer;
 
-        private Session(ConditionalAction cond, Consumer<ConditionalAction> onSave, Runnable back) {
+        private Session(UUID owner, com.tommustbe12.housing.houses.HouseSlot slot, ConditionalAction cond, Consumer<ConditionalAction> onSave, Runnable back) {
+            this.owner = owner;
+            this.slot = slot;
             this.conditions = new ArrayList<>(cond.conditions());
             this.matchAny = cond.matchAny();
             this.thenList = cond.thenList();

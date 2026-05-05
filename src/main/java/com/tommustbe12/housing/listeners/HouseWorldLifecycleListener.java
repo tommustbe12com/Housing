@@ -20,14 +20,16 @@ public final class HouseWorldLifecycleListener implements Listener {
     private final OwnerTagService ownerTags;
     private final InventoryService inventories;
     private final HouseActionsService actions;
+    private final com.tommustbe12.housing.scoreboard.HouseScoreboardService scoreboards;
 
-    public HouseWorldLifecycleListener(Plugin plugin, Debug debug, HouseManager houses, OwnerTagService ownerTags, InventoryService inventories, HouseActionsService actions) {
+    public HouseWorldLifecycleListener(Plugin plugin, Debug debug, HouseManager houses, OwnerTagService ownerTags, InventoryService inventories, HouseActionsService actions, com.tommustbe12.housing.scoreboard.HouseScoreboardService scoreboards) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
         this.ownerTags = ownerTags;
         this.inventories = inventories;
         this.actions = actions;
+        this.scoreboards = scoreboards;
     }
 
     @EventHandler
@@ -52,6 +54,7 @@ public final class HouseWorldLifecycleListener implements Listener {
             inventories.applyHouseInventoryOrDefault(player, toInfo.owner(), toInfo.slot());
             houses.applyOwnerState(player, toInfo.owner());
             ownerTags.applyOwner(player, toInfo.owner());
+            scoreboards.start(player, toInfo.owner(), toInfo.slot());
             actions.runEvent(toInfo.owner(), toInfo.slot(), player.getWorld(), player, "player_join");
         } else {
             // Leaving houses -> restore hub state
@@ -59,6 +62,7 @@ public final class HouseWorldLifecycleListener implements Listener {
                 inventories.restoreHubInventory(player);
             }
             ownerTags.clear(player);
+            scoreboards.stop(player);
         }
     }
 

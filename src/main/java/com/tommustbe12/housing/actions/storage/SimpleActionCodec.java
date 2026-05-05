@@ -16,6 +16,7 @@ import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
 import com.tommustbe12.housing.actions.impl.ConditionalAction;
 import com.tommustbe12.housing.actions.ActionList;
 import com.tommustbe12.housing.actions.conditions.*;
+import com.tommustbe12.housing.util.ItemStackSerialization;
 import com.tommustbe12.housing.actions.placeholders.Placeholders;
 import com.tommustbe12.housing.actions.placeholders.VariablesStore;
 import com.tommustbe12.housing.houses.HouseManager;
@@ -96,7 +97,7 @@ public final class SimpleActionCodec implements ActionCodec {
                 case "player_health" -> out.add(new PlayerHealthCondition(parseCompare(string(m, "op")), doubleNum(m, "value", 0)));
                 case "max_player_health" -> out.add(new MaxHealthCondition(parseCompare(string(m, "op")), doubleNum(m, "value", 0)));
                 case "player_hunger" -> out.add(new PlayerHungerCondition(parseCompare(string(m, "op")), integer(m, "value", 0)));
-                // has_item omitted from persistence for now (requires item serialization); GUI still supports it but won’t save across restart yet.
+                case "has_item" -> out.add(new HasItemCondition(ItemStackSerialization.fromBase64(string(m, "item"))));
             }
         }
         return out;
