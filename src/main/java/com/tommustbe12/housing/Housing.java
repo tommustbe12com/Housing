@@ -8,6 +8,8 @@ import com.tommustbe12.housing.inventory.InventoryService;
 import com.tommustbe12.housing.listeners.ChatFormatListener;
 import com.tommustbe12.housing.listeners.HouseItemListener;
 import com.tommustbe12.housing.listeners.HouseRespawnListener;
+import com.tommustbe12.housing.listeners.ChatPromptListener;
+import com.tommustbe12.housing.gui.ActionsEditor;
 import com.tommustbe12.housing.listeners.PlayerJoinListener;
 import com.tommustbe12.housing.listeners.PlayerQuitListener;
 import com.tommustbe12.housing.listeners.HouseWorldLifecycleListener;
@@ -21,6 +23,8 @@ public final class Housing extends JavaPlugin {
     private OwnerTagService ownerTagService;
     private InventoryService inventoryService;
     private HouseActionsService actionsService;
+    private com.tommustbe12.housing.chat.ChatPrompts chatPrompts;
+    private ActionsEditor actionsEditor;
 
     @Override
     public void onEnable() {
@@ -30,14 +34,17 @@ public final class Housing extends JavaPlugin {
         this.houseManager = new HouseManager(this, debug);
         this.ownerTagService = new OwnerTagService(this, debug);
 
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager);
-        this.inventoryService = new InventoryService(this, debug, houseItemListener);
+        this.chatPrompts = new com.tommustbe12.housing.chat.ChatPrompts();
         this.actionsService = new HouseActionsService(this, debug, houseManager);
+        this.actionsEditor = new ActionsEditor(this, debug, chatPrompts, houseManager);
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor);
+        this.inventoryService = new InventoryService(this, debug, houseItemListener);
         getServer().getPluginManager().registerEvents(houseItemListener, this);
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(debug, houseItemListener, houseManager, ownerTagService), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(debug), this);
         getServer().getPluginManager().registerEvents(new HouseWorldLifecycleListener(this, debug, houseManager, ownerTagService, inventoryService, actionsService), this);
         getServer().getPluginManager().registerEvents(new ChatFormatListener(houseManager), this);
+        getServer().getPluginManager().registerEvents(new ChatPromptListener(chatPrompts), this);
         getServer().getPluginManager().registerEvents(new HouseRespawnListener(houseManager, actionsService), this);
 
         HouseCommand houseCommand = new HouseCommand(this, debug, houseManager);

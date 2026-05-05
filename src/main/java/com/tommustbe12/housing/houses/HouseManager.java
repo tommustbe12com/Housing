@@ -158,6 +158,16 @@ public final class HouseManager {
         active.clear();
     }
 
+    public void deleteHouse(UUID owner, HouseSlot slot) {
+        String id = id(owner, slot);
+        ActiveHouse house = active.remove(id);
+        if (house != null) {
+            worldToHouseId.remove(house.world().getName());
+            Bukkit.unloadWorld(house.world(), true);
+        }
+        storage.delete(owner, slot);
+    }
+
     public HouseWorldInfo getHouseInfoByWorld(World world) {
         if (world == null) return null;
         String id = worldToHouseId.get(world.getName());

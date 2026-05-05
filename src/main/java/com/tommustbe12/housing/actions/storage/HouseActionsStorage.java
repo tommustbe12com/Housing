@@ -8,6 +8,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 public final class HouseActionsStorage {
@@ -46,8 +47,25 @@ public final class HouseActionsStorage {
         return out;
     }
 
+    public void saveEventActions(UUID owner, HouseSlot slot, Map<String, ActionList> events, ActionSerializer serializer) {
+        File file = fileFor(owner, slot);
+        YamlConfiguration yaml = new YamlConfiguration();
+        for (Map.Entry<String, ActionList> entry : events.entrySet()) {
+            String eventKey = entry.getKey().toLowerCase(Locale.ROOT);
+            List<Map<String, Object>> raw = new ArrayList<>();
+            for (Action action : entry.getValue().actions()) {
+                raw.add(serializer.serialize(action));
+            }
+            yaml.set("events." + eventKey + ".actions", raw);
+        }
+        try {
+            yaml.save(file);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed saving actions: " + e.getMessage());
+        }
+    }
+
     private File fileFor(UUID owner, HouseSlot slot) {
         return new File(actionsDir, owner + "-" + slot.index() + ".yml");
     }
 }
-

@@ -1,6 +1,7 @@
 package com.tommustbe12.housing.listeners;
 
 import com.tommustbe12.housing.debug.Debug;
+import com.tommustbe12.housing.gui.ActionsEditor;
 import com.tommustbe12.housing.houses.HouseManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -28,6 +29,7 @@ public final class HouseItemListener implements Listener {
     private final Plugin plugin;
     private final Debug debug;
     private final HouseManager houses;
+    private final ActionsEditor actionsEditor;
 
     private final NamespacedKey housingItemKey;
     private final NamespacedKey hotOwnerKey;
@@ -39,11 +41,13 @@ public final class HouseItemListener implements Listener {
     private static final String TITLE_SYSTEMS = "Systems";
     private static final String TITLE_EVENT_ACTIONS = "Event Actions";
     private static final String TITLE_ICON_PICKER = "Choose Icon";
+    private static final String TITLE_DELETE_CONFIRM = "Delete House?";
 
-    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses) {
+    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
+        this.actionsEditor = actionsEditor;
         this.housingItemKey = new NamespacedKey(plugin, "housing_item");
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
@@ -145,6 +149,7 @@ public final class HouseItemListener implements Listener {
         List<String> lore = new ArrayList<>();
         lore.add("§7Click to join.");
         lore.add("§7Right-click to change icon.");
+        lore.add("§7Drop-key to delete.");
         lore.add("§7Cookies: §6" + data.cookies());
         Material icon = Material.matchMaterial(data.iconMaterial());
         if (icon == null) icon = Material.GRASS_BLOCK;
@@ -167,6 +172,14 @@ public final class HouseItemListener implements Listener {
             i++;
         }
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to houses.")));
+        player.openInventory(inv);
+    }
+
+    private void openDeleteConfirm(Player player, int slotIndex) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_DELETE_CONFIRM + " (Slot " + slotIndex + ")");
+        fill(inv);
+        inv.setItem(11, named(Material.LIME_CONCRETE, "§aConfirm Delete", List.of("§cThis cannot be undone.")));
+        inv.setItem(15, named(Material.RED_CONCRETE, "§cCancel", List.of("§7Go back.")));
         player.openInventory(inv);
     }
 
@@ -193,11 +206,27 @@ public final class HouseItemListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (event.getView().getType() == InventoryType.CHEST) {
             String title = event.getView().getTitle();
-            if (!TITLE_MAIN.equals(title) && !TITLE_HOUSES.equals(title) && !TITLE_HOT.equals(title) && !TITLE_SYSTEMS.equals(title) && !TITLE_EVENT_ACTIONS.equals(title)) return;
+            if (!TITLE_MAIN.equals(title)
+                    && !TITLE_HOUSES.equals(title)
+                    && !TITLE_HOT.equals(title)
+                    && !TITLE_SYSTEMS.equals(title)
+                    && !TITLE_EVENT_ACTIONS.equals(title)
+                    && !title.startsWith(TITLE_ICON_PICKER)
+                    && !title.startsWith(TITLE_DELETE_CONFIRM)) return;
 
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
             if (clicked == null || clicked.getType().isAir()) return;
+
+            // Actions editor overlays (event actions)
+            if (actionsEditor.isEditorTitle(title)) {
+                actionsEditor.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openEventActionsMenu(player));
+                return;
+            }
+            if ("Add Action".equals(title)) {
+                actionsEditor.handleAddPickerClick(player, clicked);
+                return;
+            }
 
             if (TITLE_MAIN.equals(title)) {
                 switch (clicked.getType()) {
@@ -219,20 +248,32 @@ public final class HouseItemListener implements Listener {
                     openMainMenu(player);
                     return;
                 }
-                if (clicked.getType() == Material.OAK_BUTTON || clicked.getType() == Material.GRASS_BLOCK) {
-                    int raw = event.getRawSlot();
-                    int houseSlot = raw == 10 ? 1 : raw == 13 ? 2 : raw == 16 ? 3 : -1;
+                int raw = event.getRawSlot();
+                int houseSlot = raw == 10 ? 1 : raw == 13 ? 2 : raw == 16 ? 3 : -1;
+
+                // Right click = icon picker (do not join)
+                if (event.isRightClick()) {
+                    if (houseSlot == -1) return;
+                    if (!houses.houseExists(player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot))) return;
+                    openIconPicker(player, houseSlot);
+                    return;
+                }
+
+                // Drop key = delete confirm
+                if (event.getClick() == org.bukkit.event.inventory.ClickType.DROP) {
+                    if (houseSlot == -1) return;
+                    if (!houses.houseExists(player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot))) return;
+                    openDeleteConfirm(player, houseSlot);
+                    return;
+                }
+
+                if (clicked.getType() == Material.OAK_BUTTON || houseSlot != -1) {
+                    int raww = event.getRawSlot();
+                    houseSlot = raww == 10 ? 1 : raww == 13 ? 2 : raww == 16 ? 3 : -1;
                     if (houseSlot == -1) return;
                     houses.createIfMissing(player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot));
                     houses.joinHouse(player, player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot));
                     player.closeInventory();
-                }
-                if (event.isRightClick()) {
-                    int raw = event.getRawSlot();
-                    int houseSlot = raw == 10 ? 1 : raw == 13 ? 2 : raw == 16 ? 3 : -1;
-                    if (houseSlot == -1) return;
-                    if (!houses.houseExists(player.getUniqueId(), com.tommustbe12.housing.houses.HouseSlot.fromIndex(houseSlot))) return;
-                    openIconPicker(player, houseSlot);
                 }
                 return;
             }
@@ -274,7 +315,34 @@ public final class HouseItemListener implements Listener {
                     openSystemsMenu(player);
                     return;
                 }
-                player.sendMessage("§7Event actions editor is coming next.");
+                // Only allow editing actions while inside your own house
+                var info = houses.getHouseInfoByWorld(player.getWorld());
+                if (info == null || !info.owner().equals(player.getUniqueId())) {
+                    player.sendMessage("§cYou can only edit event actions inside your own house.");
+                    return;
+                }
+
+                String eventKey = switch (clicked.getType()) {
+                    case LIME_DYE -> "player_join";
+                    case GRAY_DYE -> "player_quit";
+                    case RED_DYE -> "player_death";
+                    case IRON_SWORD -> "player_kill";
+                    case TOTEM_OF_UNDYING -> "player_respawn";
+                    case NAME_TAG -> "group_change";
+                    case SHIELD -> "pvp_state_change";
+                    case FISHING_ROD -> "fish_caught";
+                    case ENDER_PEARL -> "enter_portal";
+                    case ANVIL -> "player_damage";
+                    case DIAMOND_PICKAXE -> "block_break";
+                    case DROPPER -> "drop_item";
+                    case HOPPER -> "pickup_item";
+                    case STICK -> "held_item_change";
+                    case FEATHER -> "toggle_sneak";
+                    case ELYTRA -> "toggle_flight";
+                    default -> null;
+                };
+                if (eventKey == null) return;
+                actionsEditor.openEventActions(player, info.owner(), info.slot(), eventKey);
             }
 
             if (title.startsWith(TITLE_ICON_PICKER)) {
@@ -298,13 +366,42 @@ public final class HouseItemListener implements Listener {
                 houses.saveHouse(data);
                 openHousesMenu(player);
             }
+
+            if (title.startsWith(TITLE_DELETE_CONFIRM)) {
+                int slotIndex = 1;
+                int idx = title.indexOf("Slot ");
+                if (idx != -1) {
+                    try {
+                        slotIndex = Integer.parseInt(title.substring(idx + 5, idx + 6));
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (clicked.getType() == Material.RED_CONCRETE) {
+                    openHousesMenu(player);
+                    return;
+                }
+                if (clicked.getType() == Material.LIME_CONCRETE) {
+                    var slot = com.tommustbe12.housing.houses.HouseSlot.fromIndex(slotIndex);
+                    if (slot == null) return;
+                    houses.deleteHouse(player.getUniqueId(), slot);
+                    player.sendMessage("§aHouse deleted.");
+                    openHousesMenu(player);
+                }
+            }
         }
     }
+
 
     @EventHandler
     public void onInvDrag(InventoryDragEvent event) {
         String title = event.getView().getTitle();
-        if (TITLE_MAIN.equals(title) || TITLE_HOUSES.equals(title) || TITLE_HOT.equals(title) || TITLE_SYSTEMS.equals(title) || TITLE_EVENT_ACTIONS.equals(title) || title.startsWith(TITLE_ICON_PICKER)) {
+        if (TITLE_MAIN.equals(title)
+                || TITLE_HOUSES.equals(title)
+                || TITLE_HOT.equals(title)
+                || TITLE_SYSTEMS.equals(title)
+                || TITLE_EVENT_ACTIONS.equals(title)
+                || title.startsWith(TITLE_ICON_PICKER)
+                || title.startsWith(TITLE_DELETE_CONFIRM)) {
             event.setCancelled(true);
         }
     }

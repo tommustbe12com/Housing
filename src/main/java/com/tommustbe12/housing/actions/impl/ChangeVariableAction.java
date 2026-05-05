@@ -32,5 +32,12 @@ public final class ChangeVariableAction implements Action {
         }
         variables.set(ctx.houseOwner(), ctx.houseSlot(), ctx.player().getUniqueId(), cleaned, placeholders.resolve(ctx, value));
     }
-}
 
+    public String key() {
+        return key;
+    }
+
+    public String value() {
+        return value;
+    }
+}

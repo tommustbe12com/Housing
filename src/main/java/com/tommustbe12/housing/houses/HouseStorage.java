@@ -81,6 +81,14 @@ public final class HouseStorage {
         return fileFor(owner, slot).exists();
     }
 
+    public void delete(UUID owner, HouseSlot slot) {
+        File file = fileFor(owner, slot);
+        if (file.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
     public File housesDir() {
         return housesDir;
     }
