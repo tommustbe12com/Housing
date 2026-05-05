@@ -6,6 +6,7 @@ import com.tommustbe12.housing.actions.impl.ChangeVariableAction;
 import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.RunFunctionAction;
 import com.tommustbe12.housing.actions.impl.ConditionalAction;
+import com.tommustbe12.housing.actions.conditions.*;
 import com.tommustbe12.housing.actions.impl.DisplayActionBarAction;
 import com.tommustbe12.housing.actions.impl.DisplayTitleAction;
 import com.tommustbe12.housing.actions.impl.SendChatMessageAction;
@@ -42,12 +43,28 @@ public final class SimpleActionSerializer implements ActionSerializer {
             out.put("name", fn.functionName());
             out.put("global", fn.global());
         } else if (action instanceof ConditionalAction cond) {
-            out.put("left", cond.left());
-            out.put("op", cond.op().name());
-            out.put("right", cond.right());
+            out.put("matchAny", cond.matchAny());
+            out.put("conditions", cond.conditions().stream().map(SimpleActionSerializer::serializeCondition).toList());
             out.put("then", cond.thenList().actions().stream().map(this::serialize).toList());
             out.put("else", cond.elseList() == null ? java.util.List.of() : cond.elseList().actions().stream().map(this::serialize).toList());
         }
+        return out;
+    }
+
+    private static java.util.Map<String, Object> serializeCondition(Condition c) {
+        java.util.Map<String, Object> out = new java.util.HashMap<>();
+        out.put("type", c.type());
+        if (c instanceof RequiredGroupCondition g) out.put("group", g.requiredGroup());
+        if (c instanceof VariableRequirementCondition v) {
+            out.put("key", v.key());
+            out.put("op", v.op().name());
+            out.put("value", v.value());
+        }
+        if (c instanceof HasPotionEffectCondition p) out.put("effect", p.effect());
+        if (c instanceof RequiredGamemodeCondition gm) out.put("mode", gm.mode().name());
+        if (c instanceof PlayerHealthCondition ph) { out.put("op", ph.op().name()); out.put("value", ph.value()); }
+        if (c instanceof MaxHealthCondition mh) { out.put("op", mh.op().name()); out.put("value", mh.value()); }
+        if (c instanceof PlayerHungerCondition hg) { out.put("op", hg.op().name()); out.put("value", hg.value()); }
         return out;
     }
 }

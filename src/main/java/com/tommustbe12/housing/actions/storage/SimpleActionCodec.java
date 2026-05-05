@@ -15,6 +15,7 @@ import com.tommustbe12.housing.actions.impl.SendToHubAction;
 import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
 import com.tommustbe12.housing.actions.impl.ConditionalAction;
 import com.tommustbe12.housing.actions.ActionList;
+import com.tommustbe12.housing.actions.conditions.*;
 import com.tommustbe12.housing.actions.placeholders.Placeholders;
 import com.tommustbe12.housing.actions.placeholders.VariablesStore;
 import com.tommustbe12.housing.houses.HouseManager;
@@ -68,15 +69,47 @@ public final class SimpleActionCodec implements ActionCodec {
     }
 
     private Action decodeConditional(Map<?, ?> map) {
-        String left = string(map, "left");
-        String opRaw = string(map, "op").toUpperCase();
-        String right = string(map, "right");
-        ConditionalAction.Op op;
-        try { op = ConditionalAction.Op.valueOf(opRaw); } catch (Exception e) { op = ConditionalAction.Op.EQ; }
-
+        boolean matchAny = bool(map, "matchAny", false);
+        java.util.List<Condition> conds = decodeConditions(map.get("conditions"));
         ActionList thenList = decodeNested(map.get("then"));
         ActionList elseList = decodeNested(map.get("else"));
-        return new ConditionalAction(placeholders, left, op, right, thenList, elseList);
+        return new ConditionalAction(placeholders, conds, matchAny, thenList, elseList);
+    }
+
+    private java.util.List<Condition> decodeConditions(Object raw) {
+        java.util.List<Condition> out = new java.util.ArrayList<>();
+        if (!(raw instanceof java.util.List<?> list)) return out;
+        for (Object o : list) {
+            if (!(o instanceof Map<?, ?> m)) continue;
+            String type = ActionCodec.typeOf(m);
+            if (type == null) continue;
+            switch (type) {
+                case "required_group" -> out.add(new RequiredGroupCondition(placeholders, string(m, "group")));
+                case "variable_requirement" -> out.add(new VariableRequirementCondition(placeholders, string(m, "key"),
+                        parseCompare(string(m, "op")), string(m, "value")));
+                case "has_potion_effect" -> out.add(new HasPotionEffectCondition(string(m, "effect")));
+                case "player_sneaking" -> out.add(new PlayerSneakingCondition());
+                case "player_flying" -> out.add(new PlayerFlyingCondition());
+                case "required_gamemode" -> {
+                    try { out.add(new RequiredGamemodeCondition(org.bukkit.GameMode.valueOf(string(m, "mode")))); } catch (Exception ignored) {}
+                }
+                case "player_health" -> out.add(new PlayerHealthCondition(parseCompare(string(m, "op")), doubleNum(m, "value", 0)));
+                case "max_player_health" -> out.add(new MaxHealthCondition(parseCompare(string(m, "op")), doubleNum(m, "value", 0)));
+                case "player_hunger" -> out.add(new PlayerHungerCondition(parseCompare(string(m, "op")), integer(m, "value", 0)));
+                // has_item omitted from persistence for now (requires item serialization); GUI still supports it but won’t save across restart yet.
+            }
+        }
+        return out;
+    }
+
+    private static CompareOp parseCompare(String raw) {
+        try { return CompareOp.valueOf(raw.trim().toUpperCase()); } catch (Exception e) { return CompareOp.EQ; }
+    }
+
+    private static double doubleNum(Map<?, ?> map, String key, double def) {
+        Object v = map.get(key);
+        if (v == null) return def;
+        try { return Double.parseDouble(v.toString()); } catch (Exception e) { return def; }
     }
 
     private ActionList decodeNested(Object raw) {
