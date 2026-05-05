@@ -81,8 +81,16 @@ public final class HouseItemListener implements Listener {
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_MAIN);
         fill(inv);
         inv.setItem(11, named(Material.OAK_DOOR, "§aYour Houses", List.of("§7Create or join your houses.")));
-        inv.setItem(13, named(Material.REPEATER, "§bSystems", List.of("§7Customize your house.")));
-        inv.setItem(15, named(Material.FIREWORK_STAR, "§6Hot Houses", List.of("§7Top houses by cookies.")));
+        boolean inOwnHouse = false;
+        var info = houses.getHouseInfoByWorld(player.getWorld());
+        if (info != null && info.owner().equals(player.getUniqueId())) inOwnHouse = true;
+
+        if (inOwnHouse) {
+            inv.setItem(13, named(Material.REPEATER, "§bSystems", List.of("§7Customize your house.")));
+            inv.setItem(15, named(Material.FIREWORK_STAR, "§6Hot Houses", List.of("§7Top houses by cookies.")));
+        } else {
+            inv.setItem(13, named(Material.FIREWORK_STAR, "§6Hot Houses", List.of("§7Top houses by cookies.")));
+        }
         inv.setItem(26, named(Material.BARRIER, "§cBack to Hub", List.of("§7Teleport back to the hub.")));
         player.openInventory(inv);
     }
@@ -212,6 +220,7 @@ public final class HouseItemListener implements Listener {
                     && !TITLE_SYSTEMS.equals(title)
                     && !TITLE_EVENT_ACTIONS.equals(title)
                     && !"Add Action".equals(title)
+                    && !actionsEditor.isEditorTitle(title)
                     && !title.startsWith(TITLE_ICON_PICKER)
                     && !title.startsWith(TITLE_DELETE_CONFIRM)) return;
 
@@ -232,7 +241,14 @@ public final class HouseItemListener implements Listener {
             if (TITLE_MAIN.equals(title)) {
                 switch (clicked.getType()) {
                     case OAK_DOOR -> openHousesMenu(player);
-                    case REPEATER -> openSystemsMenu(player);
+                    case REPEATER -> {
+                        var info = houses.getHouseInfoByWorld(player.getWorld());
+                        if (info == null || !info.owner().equals(player.getUniqueId())) {
+                            player.sendMessage("§cSystems is only available in your own house.");
+                            return;
+                        }
+                        openSystemsMenu(player);
+                    }
                     case FIREWORK_STAR -> openHotMenu(player);
                     case BARRIER -> {
                         houses.sendToHub(player);
@@ -402,6 +418,7 @@ public final class HouseItemListener implements Listener {
                 || TITLE_SYSTEMS.equals(title)
                 || TITLE_EVENT_ACTIONS.equals(title)
                 || "Add Action".equals(title)
+                || actionsEditor.isEditorTitle(title)
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)) {
             event.setCancelled(true);

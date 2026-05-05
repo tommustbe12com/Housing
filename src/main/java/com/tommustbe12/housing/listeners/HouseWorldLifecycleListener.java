@@ -50,6 +50,7 @@ public final class HouseWorldLifecycleListener implements Listener {
                 inventories.snapshotHubInventory(player);
             }
             inventories.applyHouseInventoryOrDefault(player, toInfo.owner(), toInfo.slot());
+            houses.applyOwnerState(player, toInfo.owner());
             ownerTags.applyOwner(player, toInfo.owner());
             actions.runEvent(toInfo.owner(), toInfo.slot(), player.getWorld(), player, "player_join");
         } else {

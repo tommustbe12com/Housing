@@ -10,3 +10,6 @@ commands:
   house:
     description: Housing main command
     usage: /house
+  edit:
+    description: Edit the held item
+    usage: /edit

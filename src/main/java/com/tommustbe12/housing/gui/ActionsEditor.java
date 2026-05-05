@@ -60,12 +60,19 @@ public final class ActionsEditor {
         openList(player, session);
     }
 
+    public void openStandalone(Player player, String key, ActionList list, java.util.function.Consumer<ActionList> onSave) {
+        UUID fakeOwner = new UUID(0L, 0L);
+        Session session = new Session(fakeOwner, HouseSlot.SLOT_1, key.toLowerCase(Locale.ROOT), new HashMap<>(), onSave, list);
+        sessions.put(player.getUniqueId(), session);
+        openList(player, session);
+    }
+
     private void openList(Player player, Session session) {
         String title = TITLE_PREFIX + session.eventKey;
         Inventory inv = Bukkit.createInventory(null, 54, title);
         fill(inv);
 
-        ActionList list = session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
+        ActionList list = session.standaloneList != null ? session.standaloneList : session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
         int i = 0;
         for (Action action : list.actions()) {
             inv.setItem(i++, actionItem(action));
@@ -92,7 +99,7 @@ public final class ActionsEditor {
         }
 
         if (rawSlot >= 0 && rawSlot < 45) {
-            ActionList list = session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
+            ActionList list = session.standaloneList != null ? session.standaloneList : session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
             if (rawSlot >= list.actions().size()) return;
             if (clickType.isRightClick()) {
                 list.actions().remove(rawSlot);
@@ -133,7 +140,7 @@ public final class ActionsEditor {
             return;
         }
 
-        ActionList list = session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
+        ActionList list = session.standaloneList != null ? session.standaloneList : session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
         switch (clicked.getType()) {
             case PAPER -> prompts.prompt(player, "Enter message:", msg -> {
                 if (msg.equalsIgnoreCase("cancel")) return;
@@ -215,7 +222,7 @@ public final class ActionsEditor {
     }
 
     private void editAction(Player player, Session session, int index, Action action) {
-        ActionList list = session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
+        ActionList list = session.standaloneList != null ? session.standaloneList : session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
 
         if (action instanceof SendChatMessageAction) {
             prompts.prompt(player, "Edit message:", msg -> {
@@ -292,7 +299,10 @@ public final class ActionsEditor {
     }
 
     private void save(Session session) {
-        // NOTE: serializer only supports some action params; others are type-only.
+        if (session.onSave != null && session.standaloneList != null) {
+            session.onSave.accept(session.standaloneList);
+            return;
+        }
         storage.saveEventActions(session.owner, session.slot, session.events, serializer);
     }
 
@@ -325,6 +335,10 @@ public final class ActionsEditor {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 
-    private record Session(UUID owner, HouseSlot slot, String eventKey, Map<String, ActionList> events) {
+    private record Session(UUID owner, HouseSlot slot, String eventKey, Map<String, ActionList> events,
+                           java.util.function.Consumer<ActionList> onSave, ActionList standaloneList) {
+        private Session(UUID owner, HouseSlot slot, String eventKey, Map<String, ActionList> events) {
+            this(owner, slot, eventKey, events, null, null);
+        }
     }
 }

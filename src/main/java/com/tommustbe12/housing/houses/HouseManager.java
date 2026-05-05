@@ -92,13 +92,7 @@ public final class HouseManager {
 
         debug.toOps(player.getName() + " joining house " + activeHouse.id());
         player.teleport(activeHouse.spawn());
-        boolean isOwner = player.getUniqueId().equals(owner);
-        player.setGameMode(isOwner ? GameMode.CREATIVE : GameMode.ADVENTURE);
-        if (isOwner) {
-            grantOwnerPerms(player);
-        } else {
-            revokeOwnerPerms(player.getUniqueId());
-        }
+        applyOwnerState(player, owner);
         player.setAllowFlight(true);
         player.setFlying(false);
         player.sendMessage("§aJoining §f" + ChatColor.translateAlternateColorCodes('&', data.name()) + "§a...");
@@ -239,6 +233,16 @@ public final class HouseManager {
     private void revokeOwnerPerms(UUID playerId) {
         PermissionAttachment attachment = ownerAttachments.remove(playerId);
         if (attachment != null) attachment.remove();
+    }
+
+    public void applyOwnerState(Player player, UUID houseOwner) {
+        boolean isOwner = player.getUniqueId().equals(houseOwner);
+        player.setGameMode(isOwner ? GameMode.CREATIVE : GameMode.ADVENTURE);
+        if (isOwner) {
+            grantOwnerPerms(player);
+        } else {
+            revokeOwnerPerms(player.getUniqueId());
+        }
     }
 
     private World createOrLoadWorld(String name) {
