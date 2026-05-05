@@ -12,6 +12,7 @@ public final class ChatPrompts {
 
     public void prompt(Player player, String question, Consumer<String> onAnswer) {
         pending.put(player.getUniqueId(), onAnswer);
+        player.closeInventory();
         player.sendMessage("§bHousing§7: §f" + question + " §7(type in chat)");
         player.sendMessage("§7Type §ccancel §7to abort.");
     }
@@ -23,4 +24,3 @@ public final class ChatPrompts {
         return true;
     }
 }
-
