@@ -2,13 +2,16 @@ package com.tommustbe12.housing.actions.storage;
 
 import com.tommustbe12.housing.actions.Action;
 import com.tommustbe12.housing.actions.impl.ChangeVariableAction;
+import com.tommustbe12.housing.actions.impl.ClearPotionEffectsAction;
 import com.tommustbe12.housing.actions.impl.DisplayActionBarAction;
 import com.tommustbe12.housing.actions.impl.DisplayTitleAction;
 import com.tommustbe12.housing.actions.impl.FullHealAction;
+import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.KillPlayerAction;
 import com.tommustbe12.housing.actions.impl.ResetInventoryAction;
 import com.tommustbe12.housing.actions.impl.SendChatMessageAction;
 import com.tommustbe12.housing.actions.impl.SendToHubAction;
+import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
 import com.tommustbe12.housing.actions.placeholders.Placeholders;
 import com.tommustbe12.housing.actions.placeholders.VariablesStore;
 import com.tommustbe12.housing.houses.HouseManager;
@@ -45,6 +48,13 @@ public final class SimpleActionCodec implements ActionCodec {
                     integer(map, "fadeIn", 10),
                     integer(map, "stay", 40),
                     integer(map, "fadeOut", 10)
+            );
+            case "give_exp_levels" -> new GiveExpLevelsAction(integer(map, "levels", 1));
+            case "clear_potion_effects" -> new ClearPotionEffectsAction();
+            case "apply_potion_effect" -> new ApplyPotionEffectAction(
+                    string(map, "effect"),
+                    integer(map, "durationTicks", 200),
+                    integer(map, "amplifier", 0)
             );
             default -> null;
         };

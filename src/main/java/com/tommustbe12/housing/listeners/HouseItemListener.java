@@ -211,6 +211,7 @@ public final class HouseItemListener implements Listener {
                     && !TITLE_HOT.equals(title)
                     && !TITLE_SYSTEMS.equals(title)
                     && !TITLE_EVENT_ACTIONS.equals(title)
+                    && !"Add Action".equals(title)
                     && !title.startsWith(TITLE_ICON_PICKER)
                     && !title.startsWith(TITLE_DELETE_CONFIRM)) return;
 
@@ -400,6 +401,7 @@ public final class HouseItemListener implements Listener {
                 || TITLE_HOT.equals(title)
                 || TITLE_SYSTEMS.equals(title)
                 || TITLE_EVENT_ACTIONS.equals(title)
+                || "Add Action".equals(title)
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)) {
             event.setCancelled(true);

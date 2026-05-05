@@ -98,6 +98,10 @@ public final class ActionsEditor {
                 list.actions().remove(rawSlot);
                 save(session);
                 openList(player, session);
+                return;
+            }
+            if (clickType.isLeftClick()) {
+                editAction(player, session, rawSlot, list.actions().get(rawSlot));
             }
         }
     }
@@ -113,6 +117,9 @@ public final class ActionsEditor {
         inv.setItem(15, named(Material.BARRIER, "§cReset Inventory", List.of("§7Clear inventory.")));
         inv.setItem(16, named(Material.OAK_DOOR, "§aSend To Hub", List.of("§7Teleport to hub.")));
         inv.setItem(19, named(Material.COMPARATOR, "§6Change Variable", List.of("§7Set %stats.x%.")));
+        inv.setItem(20, named(Material.EXPERIENCE_BOTTLE, "§aGive Exp Levels", List.of("§7Give levels.")));
+        inv.setItem(21, named(Material.MILK_BUCKET, "§bClear Potion Effects", List.of("§7Remove all effects.")));
+        inv.setItem(22, named(Material.POTION, "§dApply Potion Effect", List.of("§7Give an effect.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -177,7 +184,111 @@ public final class ActionsEditor {
                 save(session);
                 Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
             });
+            case EXPERIENCE_BOTTLE -> prompts.prompt(player, "Enter levels (number):", msg -> {
+                if (msg.equalsIgnoreCase("cancel")) return;
+                int levels;
+                try { levels = Integer.parseInt(msg.trim()); } catch (Exception e) { return; }
+                list.actions().add(new GiveExpLevelsAction(levels));
+                save(session);
+                Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
+            });
+            case MILK_BUCKET -> {
+                list.actions().add(new ClearPotionEffectsAction());
+                save(session);
+                openList(player, session);
+            }
+            case POTION -> prompts.prompt(player, "Enter effect,durationTicks,amplifier (ex: SPEED,200,1):", msg -> {
+                if (msg.equalsIgnoreCase("cancel")) return;
+                String[] parts = msg.split(",", 3);
+                if (parts.length < 3) return;
+                try {
+                    String effect = parts[0].trim();
+                    int dur = Integer.parseInt(parts[1].trim());
+                    int amp = Integer.parseInt(parts[2].trim());
+                    list.actions().add(new ApplyPotionEffectAction(effect, dur, amp));
+                    save(session);
+                    Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
+                } catch (Exception ignored) {
+                }
+            });
         }
+    }
+
+    private void editAction(Player player, Session session, int index, Action action) {
+        ActionList list = session.events.computeIfAbsent(session.eventKey, k -> new ActionList());
+
+        if (action instanceof SendChatMessageAction) {
+            prompts.prompt(player, "Edit message:", msg -> {
+                if (msg.equalsIgnoreCase("cancel")) return;
+                list.actions().set(index, new SendChatMessageAction(placeholders, msg));
+                save(session);
+                Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
+            });
+            return;
+        }
+        if (action instanceof DisplayActionBarAction) {
+            prompts.prompt(player, "Edit actionbar text:", msg -> {
+                if (msg.equalsIgnoreCase("cancel")) return;
+                list.actions().set(index, new DisplayActionBarAction(placeholders, msg));
+                save(session);
+                Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
+            });
+            return;
+        }
+        if (action instanceof DisplayTitleAction) {
+            prompts.prompt(player, "Edit title text (use | for subtitle):", msg -> {
+                if (msg.equalsIgnoreCase("cancel")) return;
+                String[] parts = msg.split("\\|", 2);
+                String t = parts[0];
+                String s = parts.length > 1 ? parts[1] : "";
+                list.actions().set(index, new DisplayTitleAction(placeholders, t, s, 10, 40, 10));
+                save(session);
+                Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
+            });
+            return;
+        }
+        if (action instanceof ChangeVariableAction) {
+            prompts.prompt(player, "Edit variable key=value (ex: %stats.kills%=5):", msg -> {
+                if (msg.equalsIgnoreCase("cancel")) return;
+                String[] parts = msg.split("=", 2);
+                if (parts.length < 2) return;
+                list.actions().set(index, new ChangeVariableAction(variables, placeholders, parts[0].trim(), parts[1].trim()));
+                save(session);
+                Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
+            });
+            return;
+        }
+        if (action instanceof GiveExpLevelsAction) {
+            prompts.prompt(player, "Edit levels (number):", msg -> {
+                if (msg.equalsIgnoreCase("cancel")) return;
+                try {
+                    int levels = Integer.parseInt(msg.trim());
+                    list.actions().set(index, new GiveExpLevelsAction(levels));
+                    save(session);
+                    Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
+                } catch (Exception ignored) {
+                }
+            });
+            return;
+        }
+        if (action instanceof ApplyPotionEffectAction) {
+            prompts.prompt(player, "Edit effect,durationTicks,amplifier:", msg -> {
+                if (msg.equalsIgnoreCase("cancel")) return;
+                String[] parts = msg.split(",", 3);
+                if (parts.length < 3) return;
+                try {
+                    list.actions().set(index, new ApplyPotionEffectAction(parts[0].trim(),
+                            Integer.parseInt(parts[1].trim()),
+                            Integer.parseInt(parts[2].trim())));
+                    save(session);
+                    Bukkit.getScheduler().runTask(plugin, () -> openList(player, session));
+                } catch (Exception ignored) {
+                }
+            });
+            return;
+        }
+
+        player.sendMessage("§7That action has no editable values (yet).");
     }
 
     private void save(Session session) {
@@ -197,7 +308,7 @@ public final class ActionsEditor {
             case "change_variable" -> Material.COMPARATOR;
             default -> Material.BOOK;
         };
-        return named(mat, "§f" + action.type(), List.of("§7Right-click to remove"));
+        return named(mat, "§f" + action.type(), List.of("§7Left-click to edit", "§7Right-click to remove"));
     }
 
     private static ItemStack named(Material mat, String name, List<String> lore) {

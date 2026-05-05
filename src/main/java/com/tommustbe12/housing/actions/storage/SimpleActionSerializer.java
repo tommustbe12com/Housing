@@ -1,7 +1,9 @@
 package com.tommustbe12.housing.actions.storage;
 
 import com.tommustbe12.housing.actions.Action;
+import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
 import com.tommustbe12.housing.actions.impl.ChangeVariableAction;
+import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.DisplayActionBarAction;
 import com.tommustbe12.housing.actions.impl.DisplayTitleAction;
 import com.tommustbe12.housing.actions.impl.SendChatMessageAction;
@@ -28,6 +30,12 @@ public final class SimpleActionSerializer implements ActionSerializer {
             out.put("fadeIn", title.fadeIn());
             out.put("stay", title.stay());
             out.put("fadeOut", title.fadeOut());
+        } else if (action instanceof GiveExpLevelsAction exp) {
+            out.put("levels", exp.levels());
+        } else if (action instanceof ApplyPotionEffectAction pot) {
+            out.put("effect", pot.effect());
+            out.put("durationTicks", pot.durationTicks());
+            out.put("amplifier", pot.amplifier());
         }
         return out;
     }
