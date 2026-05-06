@@ -63,6 +63,7 @@ public final class HouseManager {
         world.setTime(data.timeOfDay());
         world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
         world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
+        world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
         world.setDifficulty(Difficulty.NORMAL);
 
         ensureStarterPlatform(world);
@@ -88,7 +89,9 @@ public final class HouseManager {
             return false;
         }
 
-        debug.toOps(player.getName() + " joining house " + activeHouse.id());
+        debug.toOps(player.getName() + " joining house " + activeHouse.id() +
+                " spawn=" + activeHouse.spawn().getBlockX() + "," + activeHouse.spawn().getBlockY() + "," + activeHouse.spawn().getBlockZ());
+        activeHouse.spawn().getChunk().load();
         player.teleport(activeHouse.spawn());
         applyOwnerState(player, owner);
         player.setAllowFlight(true);
@@ -107,6 +110,11 @@ public final class HouseManager {
 
     public void addCookie(UUID owner, HouseSlot slot, int amount) {
         HouseData data = getHouse(owner, slot);
+        String currentWeek = com.tommustbe12.housing.cookies.WeekKey.currentWeekKey();
+        if (!currentWeek.equals(data.cookiesWeek())) {
+            data.setCookies(0);
+            data.setCookiesWeek(currentWeek);
+        }
         data.addCookies(amount);
         saveHouse(data);
     }

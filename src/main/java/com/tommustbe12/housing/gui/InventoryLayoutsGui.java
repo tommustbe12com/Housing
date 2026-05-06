@@ -1,0 +1,231 @@
+package com.tommustbe12.housing.gui;
+
+import com.tommustbe12.housing.chat.ChatPrompts;
+import com.tommustbe12.housing.houses.HouseManager;
+import com.tommustbe12.housing.houses.HouseSlot;
+import com.tommustbe12.housing.inventorylayouts.InventoryLayout;
+import com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+
+public final class InventoryLayoutsGui {
+    private static final String TITLE_LIST = "Inventory Layouts";
+    private static final String TITLE_EDIT_PREFIX = "Edit Layout: ";
+    private static final String TITLE_PICK = "Pick Layout";
+
+    private final Plugin plugin;
+    private final ChatPrompts prompts;
+    private final HouseManager houses;
+    private final InventoryLayoutsService layouts;
+
+    private final ConcurrentHashMap<UUID, UUID> editingLayoutId = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Consumer<InventoryLayout>> pickCallbacks = new ConcurrentHashMap<>();
+
+    public InventoryLayoutsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, InventoryLayoutsService layouts) {
+        this.plugin = plugin;
+        this.prompts = prompts;
+        this.houses = houses;
+        this.layouts = layouts;
+    }
+
+    public boolean isTitle(String title) {
+        return TITLE_LIST.equals(title) || (title != null && title.startsWith(TITLE_EDIT_PREFIX)) || TITLE_PICK.equals(title);
+    }
+
+    public void open(Player player) {
+        var info = houses.getHouseInfoByWorld(player.getWorld());
+        if (info == null || !info.owner().equals(player.getUniqueId())) {
+            player.sendMessage("§cInventory Layouts can only be edited in your own house.");
+            return;
+        }
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_LIST);
+        fill(inv);
+        List<InventoryLayout> list = layouts.get(info.owner(), info.slot());
+        int i = 0;
+        for (InventoryLayout l : list) {
+            inv.setItem(i++, named(Material.CHEST, "§e" + l.name(), List.of("§7Click to edit", "§7Right-click to delete")));
+            if (i >= 45) break;
+        }
+        inv.setItem(49, named(Material.ANVIL, "§aCreate Layout", List.of("§7Click to create a new layout.")));
+        inv.setItem(53, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    public void openPicker(Player player, UUID owner, HouseSlot slot, Consumer<InventoryLayout> onPick, Runnable back) {
+        pickCallbacks.put(player.getUniqueId(), onPick);
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK);
+        fill(inv);
+        int i = 0;
+        for (InventoryLayout l : layouts.get(owner, slot)) {
+            inv.setItem(i++, named(Material.CHEST, "§e" + l.name(), List.of("§7Click to select")));
+            if (i >= 45) break;
+        }
+        inv.setItem(49, named(Material.BARRIER, "§cClear", List.of("§7Remove selected layout.")));
+        inv.setItem(53, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+        // back is handled by caller via HouseItemListener routing, but we need a way to trigger it:
+        // we store it indirectly by telling caller to re-open after ARROW; HouseItemListener already knows the back runnable.
+    }
+
+    public void handleClick(Player player, String title, int rawSlot, ItemStack clicked, org.bukkit.event.inventory.ClickType clickType, Runnable backToSystems, Runnable backToActionEditor) {
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (TITLE_PICK.equals(title)) {
+            if (clicked.getType() == Material.ARROW) { backToActionEditor.run(); return; }
+            Consumer<InventoryLayout> cb = pickCallbacks.remove(player.getUniqueId());
+            if (cb == null) { backToActionEditor.run(); return; }
+            var info = houses.getHouseInfoByWorld(player.getWorld());
+            if (info == null) { cb.accept(null); return; }
+            if (clicked.getType() == Material.BARRIER) { cb.accept(null); backToActionEditor.run(); return; }
+            int idx = rawSlot;
+            List<InventoryLayout> list = layouts.get(info.owner(), info.slot());
+            if (idx < 0 || idx >= list.size()) return;
+            cb.accept(list.get(idx));
+            backToActionEditor.run();
+            return;
+        }
+
+        var info = houses.getHouseInfoByWorld(player.getWorld());
+        if (info == null || !info.owner().equals(player.getUniqueId())) return;
+
+        if (TITLE_LIST.equals(title)) {
+            if (clicked.getType() == Material.ARROW) { backToSystems.run(); return; }
+            if (clicked.getType() == Material.ANVIL) {
+                prompts.prompt(player, "Enter layout name:", msg -> {
+                    if (msg.equalsIgnoreCase("cancel")) return;
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        InventoryLayout l = new InventoryLayout(UUID.randomUUID(), msg.trim());
+                        layouts.get(info.owner(), info.slot()).add(l);
+                        layouts.save(info.owner(), info.slot());
+                        openEdit(player, info.owner(), info.slot(), l);
+                    });
+                });
+                return;
+            }
+            int idx = rawSlot;
+            List<InventoryLayout> list = layouts.get(info.owner(), info.slot());
+            if (idx < 0 || idx >= list.size()) return;
+            InventoryLayout l = list.get(idx);
+            if (clickType.isRightClick()) {
+                list.remove(idx);
+                layouts.save(info.owner(), info.slot());
+                player.sendMessage("§aLayout deleted.");
+                open(player);
+                return;
+            }
+            openEdit(player, info.owner(), info.slot(), l);
+            return;
+        }
+
+        if (title != null && title.startsWith(TITLE_EDIT_PREFIX)) {
+            if (clicked.getType() == Material.ARROW) { open(player); return; }
+            if (clicked.getType() == Material.NAME_TAG) {
+                InventoryLayout l = findEditing(player, info.owner(), info.slot());
+                if (l == null) return;
+                prompts.prompt(player, "Enter new layout name:", msg -> {
+                    if (msg.equalsIgnoreCase("cancel")) return;
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        l.setName(msg.trim());
+                        layouts.save(info.owner(), info.slot());
+                        openEdit(player, info.owner(), info.slot(), l);
+                    });
+                });
+                return;
+            }
+            if (clicked.getType() == Material.LIME_CONCRETE) {
+                saveFromEditor(player, info.owner(), info.slot());
+                player.sendMessage("§aLayout saved.");
+                open(player);
+                return;
+            }
+            if (clicked.getType() == Material.RED_CONCRETE) {
+                editingLayoutId.remove(player.getUniqueId());
+                player.sendMessage("§cCanceled.");
+                open(player);
+            }
+        }
+    }
+
+    public void handleEditorClose(Player player, Inventory inv) {
+        if (!inv.getViewers().isEmpty()) return;
+        // no-op: saving is explicit with the save button
+        // but we keep the editingLayoutId until user saves/cancels
+    }
+
+    private void openEdit(Player player, UUID owner, HouseSlot slot, InventoryLayout layout) {
+        editingLayoutId.put(player.getUniqueId(), layout.id());
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_EDIT_PREFIX + layout.name());
+
+        // Player inv (0-35)
+        ItemStack[] contents = layout.contents();
+        if (contents != null) {
+            for (int i = 0; i < Math.min(36, contents.length); i++) {
+                if (contents[i] != null && !contents[i].getType().isAir()) inv.setItem(i, contents[i]);
+            }
+        }
+
+        // Separator row
+        ItemStack pane = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
+        for (int i = 36; i <= 44; i++) inv.setItem(i, pane);
+
+        // Armor/offhand area
+        inv.setItem(45, layout.helmet());
+        inv.setItem(46, layout.chestplate());
+        inv.setItem(47, layout.leggings());
+        inv.setItem(48, layout.boots());
+        inv.setItem(50, layout.offhand());
+
+        inv.setItem(49, named(Material.NAME_TAG, "§eRename", List.of("§7Click to rename this layout.")));
+        inv.setItem(52, named(Material.RED_CONCRETE, "§cCancel", List.of("§7Discard changes.")));
+        inv.setItem(53, named(Material.LIME_CONCRETE, "§aSave", List.of("§7Save this layout.")));
+        player.openInventory(inv);
+    }
+
+    private void saveFromEditor(Player player, UUID owner, HouseSlot slot) {
+        InventoryLayout l = findEditing(player, owner, slot);
+        if (l == null) return;
+        Inventory inv = player.getOpenInventory().getTopInventory();
+
+        ItemStack[] contents = new ItemStack[36];
+        for (int i = 0; i < 36; i++) contents[i] = inv.getItem(i);
+        // Never save nether star menu slot into layouts
+        contents[8] = null;
+        l.setContents(contents);
+
+        l.setHelmet(inv.getItem(45));
+        l.setChestplate(inv.getItem(46));
+        l.setLeggings(inv.getItem(47));
+        l.setBoots(inv.getItem(48));
+        l.setOffhand(inv.getItem(50));
+        layouts.save(owner, slot);
+    }
+
+    private InventoryLayout findEditing(Player player, UUID owner, HouseSlot slot) {
+        UUID id = editingLayoutId.get(player.getUniqueId());
+        if (id == null) return null;
+        return layouts.find(owner, slot, id);
+    }
+
+    private static ItemStack named(Material mat, String name, List<String> lore) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(name);
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private static void fill(Inventory inv) {
+        ItemStack filler = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
+        for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
+    }
+}

@@ -32,7 +32,7 @@ public final class HouseCommandsListener implements Listener {
         this.storage = new HouseCommandsStorage(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders ph = new Placeholders(vars);
-        this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> actions.runFunction(ctx.houseOwner(), ctx.houseSlot(), ctx.world(), ctx.player(), fn, global));
+        this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> actions.runFunction(ctx.houseOwner(), ctx.houseSlot(), ctx.world(), ctx.player(), fn, global), new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin));
         this.engine = new ActionsEngine(plugin, debug);
     }
 

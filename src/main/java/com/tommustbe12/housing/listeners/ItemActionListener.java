@@ -36,7 +36,7 @@ public final class ItemActionListener implements Listener {
         this.storage = new ItemActionsStorage(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders placeholders = new Placeholders(vars);
-        this.codec = new SimpleActionCodec(placeholders, vars, houses, (ctx, fn, global) -> {});
+        this.codec = new SimpleActionCodec(placeholders, vars, houses, (ctx, fn, global) -> {}, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin));
         this.engine = new ActionsEngine(plugin, debug);
     }
 

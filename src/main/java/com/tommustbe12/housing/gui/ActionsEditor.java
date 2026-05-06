@@ -31,6 +31,7 @@ public final class ActionsEditor {
     private static final String TITLE_PREFIX = "Actions: ";
     private static final String TITLE_ADD = "Add Action";
     private static final String TITLE_PICK_FUNCTION = "Choose Function";
+    private static final String TITLE_PICK_LAYOUT = "Choose Layout";
 
     private final Plugin plugin;
     private final Debug debug;
@@ -42,6 +43,7 @@ public final class ActionsEditor {
 
     private final VariablesStore variables;
     private final Placeholders placeholders;
+    private final com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService inventoryLayouts;
 
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private ConditionalGui conditionalGui;
@@ -55,6 +57,7 @@ public final class ActionsEditor {
         this.eventStorage = new HouseActionsStorage(plugin);
         this.variables = new VariablesStore(plugin);
         this.placeholders = new Placeholders(variables);
+        this.inventoryLayouts = new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin);
     }
 
     public void setConditionalGui(ConditionalGui conditionalGui) {
@@ -71,6 +74,10 @@ public final class ActionsEditor {
 
     public boolean isFunctionPickerTitle(String title) {
         return TITLE_PICK_FUNCTION.equals(title);
+    }
+
+    public boolean isLayoutPickerTitle(String title) {
+        return TITLE_PICK_LAYOUT.equals(title);
     }
 
     public void openEventActions(Player player, UUID owner, HouseSlot slot, String eventKey, Runnable back) {
@@ -194,6 +201,7 @@ public final class ActionsEditor {
                 openList(player, session);
             });
             case REPEATER -> openFunctionPicker(player);
+            case CHEST -> openLayoutPicker(player);
             case STRUCTURE_BLOCK -> {
                 if (conditionalGui == null) {
                     player.sendMessage("§cConditional editor not available.");
@@ -228,6 +236,28 @@ public final class ActionsEditor {
         openList(player, session);
     }
 
+    public void handleLayoutPickerClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) {
+            openAddPicker(player);
+            return;
+        }
+        if (clicked.getType() != Material.CHEST) return;
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getDisplayName() == null) return;
+        String pickedName = stripColor(meta.getDisplayName());
+        com.tommustbe12.housing.inventorylayouts.InventoryLayout picked = null;
+        for (com.tommustbe12.housing.inventorylayouts.InventoryLayout l : inventoryLayouts.get(session.owner, session.slot)) {
+            if (l.name().equalsIgnoreCase(pickedName)) { picked = l; break; }
+        }
+        if (picked == null) return;
+        session.list().actions().add(new ApplyInventoryLayoutAction(inventoryLayouts, picked.id()));
+        save(session);
+        openList(player, session);
+    }
+
     private void openList(Player player, Session session) {
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_PREFIX + session.key);
         fill(inv);
@@ -257,6 +287,25 @@ public final class ActionsEditor {
         inv.setItem(22, named(Material.POTION, "§dApply Potion Effect", List.of("§7Give an effect.")));
         inv.setItem(23, named(Material.REPEATER, "§fRun Function", List.of("§7Pick a function.")));
         inv.setItem(24, named(Material.STRUCTURE_BLOCK, "§eConditional", List.of("§7GUI-based if/else.")));
+        inv.setItem(25, named(Material.CHEST, "§6Apply Inventory Layout", List.of("§7Pick a saved layout.")));
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private void openLayoutPicker(Player player) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (session.owner.getMostSignificantBits() == 0L && session.owner.getLeastSignificantBits() == 0L) {
+            player.sendMessage("§cInventory Layouts require a house context.");
+            return;
+        }
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_LAYOUT);
+        fill(inv);
+        int i = 0;
+        for (com.tommustbe12.housing.inventorylayouts.InventoryLayout l : inventoryLayouts.get(session.owner, session.slot)) {
+            inv.setItem(i++, named(Material.CHEST, "§e" + l.name(), List.of("§7Click to select")));
+            if (i >= 45) break;
+        }
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -365,7 +414,7 @@ public final class ActionsEditor {
     }
 
     private SimpleActionCodec newCodec() {
-        return new SimpleActionCodec(placeholders, variables, houses, (ctx, fn, global) -> {});
+        return new SimpleActionCodec(placeholders, variables, houses, (ctx, fn, global) -> {}, inventoryLayouts);
     }
 
     private void prompt(Player player, String question, Consumer<String> onOk) {
@@ -390,6 +439,7 @@ public final class ActionsEditor {
             case "apply_potion_effect" -> Material.POTION;
             case "run_function" -> Material.REPEATER;
             case "conditional" -> Material.STRUCTURE_BLOCK;
+            case "apply_inventory_layout" -> Material.CHEST;
             default -> Material.BOOK;
         };
         List<String> lore = new ArrayList<>();
@@ -419,6 +469,8 @@ public final class ActionsEditor {
         } else if (action instanceof ConditionalAction cond) {
             lore.add("§7conditions: §f" + cond.conditions().size() + " §7mode: §f" + (cond.matchAny() ? "ANY" : "ALL"));
             lore.add("§7then: §f" + cond.thenList().actions().size() + " §7else: §f" + (cond.elseList() == null ? 0 : cond.elseList().actions().size()));
+        } else if (action instanceof ApplyInventoryLayoutAction inv) {
+            lore.add("§7layout: §f" + (inv.layoutId() == null ? "" : inv.layoutId().toString()));
         }
         return lore;
     }

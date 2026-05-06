@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
+import com.tommustbe12.housing.cookies.WeekKey;
+
 public final class HouseStorage {
     private final Plugin plugin;
     private final File housesDir;
@@ -29,8 +31,18 @@ public final class HouseStorage {
         data.setName(yaml.getString("name", data.name()));
         data.setMaxPlayers(yaml.getInt("maxPlayers", data.maxPlayers()));
         data.setTimeOfDay(yaml.getLong("timeOfDay", data.timeOfDay()));
-        int cookies = yaml.getInt("cookies", 0);
-        if (cookies != 0) data.addCookies(cookies);
+
+        // Weekly cookie totals (house "hot" list is for the current week only)
+        String currentWeek = WeekKey.currentWeekKey();
+        String cookiesWeek = yaml.getString("cookies.week", yaml.getString("cookiesWeek", ""));
+        int cookies = yaml.getInt("cookies.count", yaml.getInt("cookies", 0));
+        if (!currentWeek.equals(cookiesWeek)) {
+            data.setCookies(0);
+            data.setCookiesWeek(currentWeek);
+        } else {
+            data.setCookies(cookies);
+            data.setCookiesWeek(cookiesWeek);
+        }
         data.setIconMaterial(yaml.getString("icon", data.iconMaterial()));
 
         if (yaml.getBoolean("spawn.set", false)) {
@@ -39,7 +51,7 @@ public final class HouseStorage {
             double z = yaml.getDouble("spawn.z");
             float yaw = (float) yaml.getDouble("spawn.yaw");
             float pitch = (float) yaml.getDouble("spawn.pitch");
-            data.setSpawn(new org.bukkit.Location(plugin.getServer().getWorlds().getFirst(), x, y, z, yaw, pitch));
+            data.setSpawnRaw(x, y, z, yaw, pitch);
         }
 
         return data;
@@ -51,7 +63,8 @@ public final class HouseStorage {
         yaml.set("name", data.name());
         yaml.set("maxPlayers", data.maxPlayers());
         yaml.set("timeOfDay", data.timeOfDay());
-        yaml.set("cookies", data.cookies());
+        yaml.set("cookies.week", data.cookiesWeek());
+        yaml.set("cookies.count", data.cookies());
         yaml.set("icon", data.iconMaterial());
         yaml.set("spawn.set", data.hasSpawn());
         if (data.hasSpawn()) {

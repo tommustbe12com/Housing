@@ -2,6 +2,7 @@ package com.tommustbe12.housing.actions.storage;
 
 import com.tommustbe12.housing.actions.Action;
 import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
+import com.tommustbe12.housing.actions.impl.ApplyInventoryLayoutAction;
 import com.tommustbe12.housing.actions.impl.ChangeVariableAction;
 import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.RunFunctionAction;
@@ -43,6 +44,8 @@ public final class SimpleActionSerializer implements ActionSerializer {
         } else if (action instanceof RunFunctionAction fn) {
             out.put("name", fn.functionName());
             out.put("global", fn.global());
+        } else if (action instanceof ApplyInventoryLayoutAction inv) {
+            out.put("layoutId", inv.layoutId() == null ? "" : inv.layoutId().toString());
         } else if (action instanceof ConditionalAction cond) {
             out.put("matchAny", cond.matchAny());
             out.put("conditions", cond.conditions().stream().map(SimpleActionSerializer::serializeCondition).toList());

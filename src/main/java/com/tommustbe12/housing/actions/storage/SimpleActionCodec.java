@@ -14,26 +14,31 @@ import com.tommustbe12.housing.actions.impl.SendChatMessageAction;
 import com.tommustbe12.housing.actions.impl.SendToHubAction;
 import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
 import com.tommustbe12.housing.actions.impl.ConditionalAction;
+import com.tommustbe12.housing.actions.impl.ApplyInventoryLayoutAction;
 import com.tommustbe12.housing.actions.ActionList;
 import com.tommustbe12.housing.actions.conditions.*;
 import com.tommustbe12.housing.util.ItemStackSerialization;
 import com.tommustbe12.housing.actions.placeholders.Placeholders;
 import com.tommustbe12.housing.actions.placeholders.VariablesStore;
 import com.tommustbe12.housing.houses.HouseManager;
+import com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService;
 
 import java.util.Map;
+import java.util.UUID;
 
 public final class SimpleActionCodec implements ActionCodec {
     private final Placeholders placeholders;
     private final VariablesStore variables;
     private final HouseManager houses;
     private final RunFunctionAction.FunctionRunner functionRunner;
+    private final InventoryLayoutsService inventoryLayouts;
 
-    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner) {
+    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner, InventoryLayoutsService inventoryLayouts) {
         this.placeholders = placeholders;
         this.variables = variables;
         this.houses = houses;
         this.functionRunner = functionRunner;
+        this.inventoryLayouts = inventoryLayouts;
     }
 
     @Override
@@ -64,6 +69,11 @@ public final class SimpleActionCodec implements ActionCodec {
                     integer(map, "amplifier", 0)
             );
             case "run_function" -> new RunFunctionAction(functionRunner, string(map, "name"), bool(map, "global", false));
+            case "apply_inventory_layout" -> {
+                UUID id = null;
+                try { id = UUID.fromString(string(map, "layoutId")); } catch (Exception ignored) {}
+                yield new ApplyInventoryLayoutAction(inventoryLayouts, id);
+            }
             case "conditional" -> decodeConditional(map);
             default -> null;
         };

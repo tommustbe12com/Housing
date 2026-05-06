@@ -45,7 +45,7 @@ public final class CommandsGui {
         this.storage = new HouseCommandsStorage(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders ph = new Placeholders(vars);
-        this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {});
+        this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {}, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin));
     }
 
     public boolean isTitle(String title) {
@@ -200,4 +200,3 @@ public final class CommandsGui {
         }
     }
 }
-

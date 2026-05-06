@@ -43,7 +43,7 @@ public final class HouseSettingsGui {
         fill(inv);
         inv.setItem(11, named(Material.NAME_TAG, "§aHouse Name", List.of("§7Current:", "§f" + ChatColor.translateAlternateColorCodes('&', data.name()), "§7Click to edit")));
         inv.setItem(13, named(Material.COMPASS, "§bSet Spawn Here", List.of("§7Sets house spawn to your location.")));
-        inv.setItem(15, named(Material.CLOCK, "§eTime Of Day", List.of("§7Current: §f" + data.timeOfDay(), "§7Click to set to current world time")));
+        inv.setItem(15, named(Material.CLOCK, "§eTime", List.of("§7Current: §f" + data.timeOfDay(), "§7Click to +1000 (wraps at 24000).")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -76,11 +76,18 @@ public final class HouseSettingsGui {
             return;
         }
         if (clicked.getType() == Material.CLOCK) {
-            data.setTimeOfDay(player.getWorld().getTime());
-            houses.saveHouse(data);
-            player.sendMessage("§aTime updated.");
-            open(player);
+            long next = (data.timeOfDay() + 1000L) % 24000L;
+            setTime(player, data, next);
+            return;
         }
+    }
+
+    private void setTime(Player player, HouseData data, long time) {
+        data.setTimeOfDay(time);
+        houses.saveHouse(data);
+        player.getWorld().setTime(time);
+        player.sendMessage("§aTime updated to §f" + time + "§a.");
+        open(player);
     }
 
     private static ItemStack named(Material mat, String name, List<String> lore) {
@@ -97,4 +104,3 @@ public final class HouseSettingsGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-

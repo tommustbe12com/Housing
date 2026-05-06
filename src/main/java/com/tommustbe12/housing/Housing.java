@@ -17,6 +17,11 @@ import com.tommustbe12.housing.gui.ScoreboardEditorGui;
 import com.tommustbe12.housing.scoreboard.HouseScoreboardService;
 import com.tommustbe12.housing.gui.CommandsGui;
 import com.tommustbe12.housing.gui.HouseSettingsGui;
+import com.tommustbe12.housing.gui.InventoryLayoutsGui;
+import com.tommustbe12.housing.cookies.CookieItemListener;
+import com.tommustbe12.housing.cookies.CookieService;
+import com.tommustbe12.housing.npcs.NpcManager;
+import com.tommustbe12.housing.gui.NpcsGui;
 import com.tommustbe12.housing.commands.EditCommand;
 import com.tommustbe12.housing.listeners.ItemEditGuiListener;
 import com.tommustbe12.housing.listeners.ItemActionListener;
@@ -43,6 +48,11 @@ public final class Housing extends JavaPlugin {
     private ScoreboardEditorGui scoreboardEditorGui;
     private CommandsGui commandsGui;
     private HouseSettingsGui houseSettingsGui;
+    private InventoryLayoutsGui inventoryLayoutsGui;
+    private CookieService cookieService;
+    private CookieItemListener cookieItemListener;
+    private NpcManager npcManager;
+    private NpcsGui npcsGui;
 
     @Override
     public void onEnable() {
@@ -61,10 +71,20 @@ public final class Housing extends JavaPlugin {
         this.scoreboardEditorGui = new ScoreboardEditorGui(this, chatPrompts, houseManager, scoreboardService);
         this.commandsGui = new CommandsGui(this, debug, chatPrompts, actionsEditor, houseManager);
         this.houseSettingsGui = new HouseSettingsGui(this, chatPrompts, houseManager);
+        this.inventoryLayoutsGui = new InventoryLayoutsGui(this, chatPrompts, houseManager, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(this));
         this.itemEditGui = new ItemEditGui(this, debug, chatPrompts, actionsEditor, houseManager);
         this.functionsGui = new FunctionsGui(this, debug, chatPrompts, actionsEditor, houseManager);
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui);
+        this.npcManager = new NpcManager(this, debug, houseManager);
+        // wipe old NPC data (ArmorStand implementation) - we fully switched to Citizens
+        deleteDir(new java.io.File(getDataFolder(), "npcs"));
+        this.npcManager.start();
+        this.npcsGui = new NpcsGui(this, chatPrompts, houseManager, npcManager, actionsEditor);
+
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, npcsGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
+        this.cookieService = new CookieService(this, debug, houseManager);
+        this.cookieItemListener = new CookieItemListener(this, houseManager, cookieService);
+        this.inventoryService.setCookieItemListener(cookieItemListener);
         getServer().getPluginManager().registerEvents(houseItemListener, this);
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(debug, houseItemListener, houseManager, ownerTagService), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(debug), this);
@@ -74,6 +94,10 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ItemEditGuiListener(itemEditGui), this);
         getServer().getPluginManager().registerEvents(new ItemActionListener(this, debug, houseManager, itemEditGui), this);
         getServer().getPluginManager().registerEvents(new HouseEventActionsListener(houseManager, actionsService), this);
+        getServer().getPluginManager().registerEvents(cookieItemListener, this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.CitizensNpcInteractListener(houseManager, npcManager, npcsGui), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.NpcEquipCloseListener(npcsGui), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HouseNpcLifecycleListener(houseManager, npcManager), this);
         getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HouseCommandsListener(this, debug, houseManager, actionsService), this);
         getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HouseCommandSuggestionsListener(this, houseManager), this);
         getServer().getPluginManager().registerEvents(new HouseRespawnListener(this, houseManager, actionsService, inventoryService), this);
@@ -100,5 +124,22 @@ public final class Housing extends JavaPlugin {
         if (houseManager != null) {
             houseManager.shutdown();
         }
+        if (npcManager != null) {
+            npcManager.stop();
+        }
+    }
+
+    private static void deleteDir(java.io.File dir) {
+        if (dir == null || !dir.exists()) return;
+        java.io.File[] files = dir.listFiles();
+        if (files != null) {
+            for (java.io.File f : files) {
+                if (f.isDirectory()) deleteDir(f);
+                //noinspection ResultOfMethodCallIgnored
+                f.delete();
+            }
+        }
+        //noinspection ResultOfMethodCallIgnored
+        dir.delete();
     }
 }

@@ -45,7 +45,7 @@ public final class FunctionsGui {
         this.storage = new FunctionStorage(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders placeholders = new Placeholders(vars);
-        this.codec = new SimpleActionCodec(placeholders, vars, houses, (ctx, fn, global) -> {});
+        this.codec = new SimpleActionCodec(placeholders, vars, houses, (ctx, fn, global) -> {}, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin));
     }
 
     public boolean isTitle(String title) {

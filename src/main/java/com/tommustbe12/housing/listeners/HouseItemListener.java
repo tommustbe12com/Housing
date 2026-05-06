@@ -7,6 +7,8 @@ import com.tommustbe12.housing.gui.ConditionalGui;
 import com.tommustbe12.housing.gui.ScoreboardEditorGui;
 import com.tommustbe12.housing.gui.CommandsGui;
 import com.tommustbe12.housing.gui.HouseSettingsGui;
+import com.tommustbe12.housing.gui.InventoryLayoutsGui;
+import com.tommustbe12.housing.gui.NpcsGui;
 import com.tommustbe12.housing.houses.HouseManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -23,8 +25,8 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +42,8 @@ public final class HouseItemListener implements Listener {
     private final ScoreboardEditorGui scoreboardEditorGui;
     private final CommandsGui commandsGui;
     private final HouseSettingsGui houseSettingsGui;
+    private final InventoryLayoutsGui inventoryLayoutsGui;
+    private final NpcsGui npcsGui;
 
     private final NamespacedKey housingItemKey;
     private final NamespacedKey hotOwnerKey;
@@ -53,7 +57,7 @@ public final class HouseItemListener implements Listener {
     private static final String TITLE_ICON_PICKER = "Choose Icon";
     private static final String TITLE_DELETE_CONFIRM = "Delete House?";
 
-    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor, FunctionsGui functionsGui, ConditionalGui conditionalGui, ScoreboardEditorGui scoreboardEditorGui, CommandsGui commandsGui, HouseSettingsGui houseSettingsGui) {
+    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor, FunctionsGui functionsGui, ConditionalGui conditionalGui, ScoreboardEditorGui scoreboardEditorGui, CommandsGui commandsGui, HouseSettingsGui houseSettingsGui, InventoryLayoutsGui inventoryLayoutsGui, NpcsGui npcsGui) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
@@ -63,6 +67,8 @@ public final class HouseItemListener implements Listener {
         this.scoreboardEditorGui = scoreboardEditorGui;
         this.commandsGui = commandsGui;
         this.houseSettingsGui = houseSettingsGui;
+        this.inventoryLayoutsGui = inventoryLayoutsGui;
+        this.npcsGui = npcsGui;
         this.housingItemKey = new NamespacedKey(plugin, "housing_item");
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
@@ -127,7 +133,7 @@ public final class HouseItemListener implements Listener {
         inv.setItem(30, named(Material.CHEST, "§6Inventory Layouts", List.of("§7Coming in a later version.")));
         inv.setItem(32, named(Material.PLAYER_HEAD, "§9Teams", List.of("§7Coming in a later version.")));
         inv.setItem(34, named(Material.ITEM_FRAME, "§aCustom Menus", List.of("§7Coming in a later version.")));
-        inv.setItem(38, named(Material.ARMOR_STAND, "§eNPCs", List.of("§7Coming in a later version.")));
+        inv.setItem(38, named(Material.ARMOR_STAND, "§eNPCs", List.of("§7Create and edit NPCs.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to main menu.")));
         player.openInventory(inv);
     }
@@ -219,9 +225,11 @@ public final class HouseItemListener implements Listener {
         int slot = 0;
         for (var data : top) {
             String name = ChatColor.translateAlternateColorCodes('&', data.name());
+            String ownerName = org.bukkit.Bukkit.getOfflinePlayer(data.owner()).getName();
+            if (ownerName == null) ownerName = data.owner().toString();
             Material icon = Material.matchMaterial(data.iconMaterial());
             if (icon == null) icon = Material.CAKE;
-            ItemStack item = named(icon, "§6" + name, List.of("§7Cookies: §6" + data.cookies(), "§7Click to join."));
+            ItemStack item = named(icon, "§6" + name, List.of("§7By: §b" + ownerName, "§7Cookies: §6" + data.cookies(), "§7Click to join."));
             ItemMeta meta = item.getItemMeta();
             meta.getPersistentDataContainer().set(hotOwnerKey, PersistentDataType.STRING, data.owner().toString());
             meta.getPersistentDataContainer().set(hotSlotKey, PersistentDataType.INTEGER, data.slot().index());
@@ -245,15 +253,34 @@ public final class HouseItemListener implements Listener {
                     && !actionsEditor.isAddTitle(title)
                     && !actionsEditor.isEditorTitle(title)
                     && actionsEditor.isFunctionPickerTitle(title) == false
+                    && actionsEditor.isLayoutPickerTitle(title) == false
                     && !functionsGui.isTitle(title)
                     && (conditionalGui == null || !conditionalGui.isTitle(title))
                     && (scoreboardEditorGui == null || !scoreboardEditorGui.isTitle(title))
                     && (commandsGui == null || !commandsGui.isTitle(title))
                     && (houseSettingsGui == null || !houseSettingsGui.isTitle(title))
+                    && (inventoryLayoutsGui == null || !inventoryLayoutsGui.isTitle(title))
+                    && (npcsGui == null || !npcsGui.isTitle(title))
                     && !title.startsWith(TITLE_ICON_PICKER)
                     && !title.startsWith(TITLE_DELETE_CONFIRM)) return;
 
-            event.setCancelled(true);
+            // Allow editing inventory layouts / NPC equipment (normal item placement)
+            if ((inventoryLayoutsGui != null && title != null && title.startsWith("Edit Layout: "))
+                    || "NPC Equipment".equals(title)) {
+                int raw = event.getRawSlot();
+                // cancel clicks on control buttons only
+                if (title != null && title.startsWith("Edit Layout: ")) {
+                    // never allow losing the nether star slot
+                    if (raw == 8) event.setCancelled(true);
+                    if (raw == 49 || raw == 52 || raw == 53) event.setCancelled(true);
+                } else {
+                    // NPC equipment: allow only equipment slots, otherwise cancel
+                    boolean editable = raw == 10 || raw == 11 || raw == 12 || raw == 13 || raw == 15 || raw == 16;
+                    if (!editable && raw != 26) event.setCancelled(true);
+                }
+            } else {
+                event.setCancelled(true);
+            }
             ItemStack clicked = event.getCurrentItem();
             if (clicked == null || clicked.getType().isAir()) return;
 
@@ -270,6 +297,10 @@ public final class HouseItemListener implements Listener {
                 actionsEditor.handleFunctionPickerClick(player, clicked, event.getClick());
                 return;
             }
+            if (actionsEditor.isLayoutPickerTitle(title)) {
+                actionsEditor.handleLayoutPickerClick(player, clicked);
+                return;
+            }
             if (conditionalGui != null && conditionalGui.isTitle(title)) {
                 conditionalGui.handleClick(player, title, clicked, event.getClick());
                 return;
@@ -284,6 +315,14 @@ public final class HouseItemListener implements Listener {
             }
             if (houseSettingsGui != null && houseSettingsGui.isTitle(title)) {
                 houseSettingsGui.handleClick(player, event.getRawSlot(), clicked, () -> openMainMenu(player));
+                return;
+            }
+            if (inventoryLayoutsGui != null && inventoryLayoutsGui.isTitle(title)) {
+                inventoryLayoutsGui.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openSystemsMenu(player), () -> openSystemsMenu(player));
+                return;
+            }
+            if (npcsGui != null && npcsGui.isTitle(title)) {
+                npcsGui.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openSystemsMenu(player));
                 return;
             }
             if (functionsGui.isTitle(title)) {
@@ -399,6 +438,14 @@ public final class HouseItemListener implements Listener {
                     functionsGui.open(player);
                     return;
                 }
+                if (clicked.getType() == Material.CHEST) {
+                    inventoryLayoutsGui.open(player);
+                    return;
+                }
+                if (clicked.getType() == Material.ARMOR_STAND) {
+                    npcsGui.open(player);
+                    return;
+                }
                 player.sendMessage("§7That system is coming in a later version.");
             }
 
@@ -495,11 +542,14 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isAddTitle(title)
                 || actionsEditor.isEditorTitle(title)
                 || actionsEditor.isFunctionPickerTitle(title)
+                || actionsEditor.isLayoutPickerTitle(title)
                 || functionsGui.isTitle(title)
                 || (conditionalGui != null && conditionalGui.isTitle(title))
                 || (scoreboardEditorGui != null && scoreboardEditorGui.isTitle(title))
                 || (commandsGui != null && commandsGui.isTitle(title))
                 || (houseSettingsGui != null && houseSettingsGui.isTitle(title))
+                || (inventoryLayoutsGui != null && inventoryLayoutsGui.isTitle(title) && (title == null || !title.startsWith("Edit Layout: ")))
+                || (npcsGui != null && npcsGui.isTitle(title))
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)) {
             event.setCancelled(true);
@@ -523,11 +573,6 @@ public final class HouseItemListener implements Listener {
     }
 
     private boolean isHousingMenuItem(ItemStack item) {
-        if (item == null) return false;
-        if (item.getType() != Material.NETHER_STAR) return false;
-        if (!item.hasItemMeta()) return false;
-        ItemMeta meta = item.getItemMeta();
-        Byte marker = meta.getPersistentDataContainer().get(housingItemKey, PersistentDataType.BYTE);
-        return marker != null && marker == (byte) 1;
+        return com.tommustbe12.housing.util.HousingItems.isMenuStar(plugin, item);
     }
 }

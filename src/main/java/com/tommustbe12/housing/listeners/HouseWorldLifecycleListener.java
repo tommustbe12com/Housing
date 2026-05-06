@@ -39,28 +39,20 @@ public final class HouseWorldLifecycleListener implements Listener {
         var fromInfo = houses.getHouseInfoByWorld(event.getFrom());
         var toInfo = houses.getHouseInfoByWorld(player.getWorld());
 
-        // Leaving a house world -> save that house inventory and schedule deactivate if empty
+        // Leaving a house world -> schedule deactivate if empty
         if (fromInfo != null) {
             actions.runEvent(fromInfo.owner(), fromInfo.slot(), event.getFrom(), player, "player_quit");
-            inventories.saveHouseInventory(player, fromInfo.owner(), fromInfo.slot());
             houses.scheduleDeactivateIfEmpty(event.getFrom());
         }
 
         // Entering a house world -> snapshot hub inv, apply house inv, apply tags
         if (toInfo != null) {
-            if (fromInfo == null) {
-                inventories.snapshotHubInventory(player);
-            }
             inventories.applyHouseInventoryOrDefault(player, toInfo.owner(), toInfo.slot());
             houses.applyOwnerState(player, toInfo.owner());
             ownerTags.applyOwner(player, toInfo.owner());
             scoreboards.start(player, toInfo.owner(), toInfo.slot());
             actions.runEvent(toInfo.owner(), toInfo.slot(), player.getWorld(), player, "player_join");
         } else {
-            // Leaving houses -> restore hub state
-            if (fromInfo != null) {
-                inventories.restoreHubInventory(player);
-            }
             ownerTags.clear(player);
             scoreboards.stop(player);
         }
@@ -70,10 +62,7 @@ public final class HouseWorldLifecycleListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         World world = event.getPlayer().getWorld();
         var info = houses.getHouseInfoByWorld(world);
-        if (info != null) {
-            inventories.saveHouseInventory(event.getPlayer(), info.owner(), info.slot());
-            actions.runEvent(info.owner(), info.slot(), world, event.getPlayer(), "player_quit");
-        }
+        if (info != null) actions.runEvent(info.owner(), info.slot(), world, event.getPlayer(), "player_quit");
         // Delay one tick so the quitter is removed from the world's player list
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             houses.scheduleDeactivateIfEmpty(world);

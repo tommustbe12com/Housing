@@ -12,6 +12,7 @@ public final class HouseData {
     private int maxPlayers;
     private long timeOfDay;
     private int cookies;
+    private String cookiesWeek;
     private double spawnX;
     private double spawnY;
     private double spawnZ;
@@ -27,6 +28,7 @@ public final class HouseData {
         this.maxPlayers = 25;
         this.timeOfDay = 6000L;
         this.cookies = 0;
+        this.cookiesWeek = "";
         this.hasSpawn = false;
         this.iconMaterial = "GRASS_BLOCK";
     }
@@ -67,8 +69,20 @@ public final class HouseData {
         return cookies;
     }
 
+    public String cookiesWeek() {
+        return cookiesWeek;
+    }
+
+    public void setCookiesWeek(String cookiesWeek) {
+        this.cookiesWeek = cookiesWeek == null ? "" : cookiesWeek;
+    }
+
     public void addCookies(int amount) {
         this.cookies = Math.max(0, this.cookies + amount);
+    }
+
+    public void setCookies(int cookies) {
+        this.cookies = Math.max(0, cookies);
     }
 
     public boolean hasSpawn() {
@@ -85,6 +99,15 @@ public final class HouseData {
         this.spawnZ = spawn.getZ();
         this.spawnYaw = spawn.getYaw();
         this.spawnPitch = spawn.getPitch();
+        this.hasSpawn = true;
+    }
+
+    public void setSpawnRaw(double x, double y, double z, float yaw, float pitch) {
+        this.spawnX = x;
+        this.spawnY = y;
+        this.spawnZ = z;
+        this.spawnYaw = yaw;
+        this.spawnPitch = pitch;
         this.hasSpawn = true;
     }
 
