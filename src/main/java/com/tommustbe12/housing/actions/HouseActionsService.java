@@ -44,6 +44,11 @@ public final class HouseActionsService {
         engine.run(list, ctx);
     }
 
+    public void runFunction(UUID owner, HouseSlot slot, World world, Player player, String functionName, boolean global) {
+        ActionContext ctx = new ActionContext(plugin, debug, owner, slot, world, player, null, player == null ? null : player.getLocation());
+        runFunction(ctx, functionName, global);
+    }
+
     private void runFunction(ActionContext ctx, String functionName, boolean global) {
         if (functionName == null || functionName.isBlank()) return;
         var all = functions.loadAll(ctx.houseOwner(), ctx.houseSlot(), codec);

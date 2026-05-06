@@ -48,7 +48,6 @@ public final class HouseScoreboardStorage {
     }
 
     private static List<String> defaultLines() {
-        return List.of("&7Welcome!", "&f%player.name%", "&6Cookies: &f%stat.cookies%");
+        return List.of("%stat.house%", "Welcome, %player.name%", "&6Cookies: &r%stat.cookies%");
     }
 }
-

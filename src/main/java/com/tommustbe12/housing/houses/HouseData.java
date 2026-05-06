@@ -12,7 +12,12 @@ public final class HouseData {
     private int maxPlayers;
     private long timeOfDay;
     private int cookies;
-    private Location spawn;
+    private double spawnX;
+    private double spawnY;
+    private double spawnZ;
+    private float spawnYaw;
+    private float spawnPitch;
+    private boolean hasSpawn;
     private String iconMaterial;
 
     public HouseData(UUID owner, HouseSlot slot) {
@@ -22,7 +27,7 @@ public final class HouseData {
         this.maxPlayers = 25;
         this.timeOfDay = 6000L;
         this.cookies = 0;
-        this.spawn = null;
+        this.hasSpawn = false;
         this.iconMaterial = "GRASS_BLOCK";
     }
 
@@ -66,13 +71,33 @@ public final class HouseData {
         this.cookies = Math.max(0, this.cookies + amount);
     }
 
-    public Location spawn() {
-        return spawn;
+    public boolean hasSpawn() {
+        return hasSpawn;
     }
 
     public void setSpawn(Location spawn) {
-        this.spawn = spawn;
+        if (spawn == null) {
+            this.hasSpawn = false;
+            return;
+        }
+        this.spawnX = spawn.getX();
+        this.spawnY = spawn.getY();
+        this.spawnZ = spawn.getZ();
+        this.spawnYaw = spawn.getYaw();
+        this.spawnPitch = spawn.getPitch();
+        this.hasSpawn = true;
     }
+
+    public Location spawnInWorld(org.bukkit.World world) {
+        if (!hasSpawn || world == null) return null;
+        return new Location(world, spawnX, spawnY, spawnZ, spawnYaw, spawnPitch);
+    }
+
+    public double spawnX() { return spawnX; }
+    public double spawnY() { return spawnY; }
+    public double spawnZ() { return spawnZ; }
+    public float spawnYaw() { return spawnYaw; }
+    public float spawnPitch() { return spawnPitch; }
 
     public String iconMaterial() {
         return iconMaterial;

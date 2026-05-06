@@ -1,6 +1,10 @@
 package com.tommustbe12.housing.actions.placeholders;
 
 import com.tommustbe12.housing.actions.ActionContext;
+import org.bukkit.configuration.file.YamlConfiguration;
+
+import java.io.File;
+import java.util.UUID;
 
 public final class Placeholders {
     private final VariablesStore variables;
@@ -41,10 +45,29 @@ public final class Placeholders {
             if (end == -1) break;
             String token = out.substring(start, end + 1);
             String key = token.substring(prefix.length(), token.length() - 1);
-            String val = variables.get(ctx.houseOwner(), ctx.houseSlot(), ctx.player() == null ? null : ctx.player().getUniqueId(), key);
+            String val;
+            if ("cookies".equalsIgnoreCase(key) || "house".equalsIgnoreCase(key)) {
+                val = resolveHouseStat(ctx, key);
+            } else {
+                val = variables.get(ctx.houseOwner(), ctx.houseSlot(), ctx.player() == null ? null : ctx.player().getUniqueId(), key);
+            }
             out = out.replace(token, val == null ? "" : val);
         }
 
         return out;
+    }
+
+    private static String resolveHouseStat(ActionContext ctx, String key) {
+        try {
+            File housesDir = new File(ctx.plugin().getDataFolder(), "houses");
+            File file = new File(housesDir, ctx.houseOwner() + "-" + ctx.houseSlot().index() + ".yml");
+            if (!file.exists()) return "";
+            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+            if ("cookies".equalsIgnoreCase(key)) return Integer.toString(yaml.getInt("cookies", 0));
+            if ("house".equalsIgnoreCase(key)) return yaml.getString("name", "");
+            return "";
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

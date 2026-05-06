@@ -15,6 +15,8 @@ import com.tommustbe12.housing.gui.FunctionsGui;
 import com.tommustbe12.housing.gui.ConditionalGui;
 import com.tommustbe12.housing.gui.ScoreboardEditorGui;
 import com.tommustbe12.housing.scoreboard.HouseScoreboardService;
+import com.tommustbe12.housing.gui.CommandsGui;
+import com.tommustbe12.housing.gui.HouseSettingsGui;
 import com.tommustbe12.housing.commands.EditCommand;
 import com.tommustbe12.housing.listeners.ItemEditGuiListener;
 import com.tommustbe12.housing.listeners.ItemActionListener;
@@ -39,6 +41,8 @@ public final class Housing extends JavaPlugin {
     private ConditionalGui conditionalGui;
     private HouseScoreboardService scoreboardService;
     private ScoreboardEditorGui scoreboardEditorGui;
+    private CommandsGui commandsGui;
+    private HouseSettingsGui houseSettingsGui;
 
     @Override
     public void onEnable() {
@@ -55,9 +59,11 @@ public final class Housing extends JavaPlugin {
         this.actionsEditor.setConditionalGui(conditionalGui);
         this.scoreboardService = new HouseScoreboardService(this, houseManager);
         this.scoreboardEditorGui = new ScoreboardEditorGui(this, chatPrompts, houseManager, scoreboardService);
+        this.commandsGui = new CommandsGui(this, debug, chatPrompts, actionsEditor, houseManager);
+        this.houseSettingsGui = new HouseSettingsGui(this, chatPrompts, houseManager);
         this.itemEditGui = new ItemEditGui(this, debug, chatPrompts, actionsEditor, houseManager);
         this.functionsGui = new FunctionsGui(this, debug, chatPrompts, actionsEditor, houseManager);
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui);
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
         getServer().getPluginManager().registerEvents(houseItemListener, this);
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(debug, houseItemListener, houseManager, ownerTagService), this);
@@ -68,6 +74,8 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ItemEditGuiListener(itemEditGui), this);
         getServer().getPluginManager().registerEvents(new ItemActionListener(this, debug, houseManager, itemEditGui), this);
         getServer().getPluginManager().registerEvents(new HouseEventActionsListener(houseManager, actionsService), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HouseCommandsListener(this, debug, houseManager, actionsService), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HouseCommandSuggestionsListener(this, houseManager), this);
         getServer().getPluginManager().registerEvents(new HouseRespawnListener(this, houseManager, actionsService, inventoryService), this);
 
         HouseCommand houseCommand = new HouseCommand(this, debug, houseManager);

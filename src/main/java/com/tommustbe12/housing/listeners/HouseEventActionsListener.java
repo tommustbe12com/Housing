@@ -66,7 +66,9 @@ public final class HouseEventActionsListener implements Listener {
 
     @EventHandler
     public void onFish(PlayerFishEvent event) {
-        run(event.getPlayer(), "fish_caught");
+        if (event.getState() == PlayerFishEvent.State.CAUGHT_FISH || event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY) {
+            run(event.getPlayer(), "fish_caught");
+        }
     }
 
     @EventHandler

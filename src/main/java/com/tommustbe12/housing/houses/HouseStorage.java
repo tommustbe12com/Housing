@@ -1,7 +1,5 @@
 package com.tommustbe12.housing.houses;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
@@ -35,16 +33,13 @@ public final class HouseStorage {
         if (cookies != 0) data.addCookies(cookies);
         data.setIconMaterial(yaml.getString("icon", data.iconMaterial()));
 
-        if (yaml.isConfigurationSection("spawn")) {
-            String worldName = yaml.getString("spawn.world");
+        if (yaml.getBoolean("spawn.set", false)) {
             double x = yaml.getDouble("spawn.x");
             double y = yaml.getDouble("spawn.y");
             double z = yaml.getDouble("spawn.z");
             float yaw = (float) yaml.getDouble("spawn.yaw");
             float pitch = (float) yaml.getDouble("spawn.pitch");
-            if (worldName != null && Bukkit.getWorld(worldName) != null) {
-                data.setSpawn(new Location(Bukkit.getWorld(worldName), x, y, z, yaw, pitch));
-            }
+            data.setSpawn(new org.bukkit.Location(plugin.getServer().getWorlds().getFirst(), x, y, z, yaw, pitch));
         }
 
         return data;
@@ -58,13 +53,13 @@ public final class HouseStorage {
         yaml.set("timeOfDay", data.timeOfDay());
         yaml.set("cookies", data.cookies());
         yaml.set("icon", data.iconMaterial());
-        if (data.spawn() != null) {
-            yaml.set("spawn.world", data.spawn().getWorld().getName());
-            yaml.set("spawn.x", data.spawn().getX());
-            yaml.set("spawn.y", data.spawn().getY());
-            yaml.set("spawn.z", data.spawn().getZ());
-            yaml.set("spawn.yaw", data.spawn().getYaw());
-            yaml.set("spawn.pitch", data.spawn().getPitch());
+        yaml.set("spawn.set", data.hasSpawn());
+        if (data.hasSpawn()) {
+            yaml.set("spawn.x", data.spawnX());
+            yaml.set("spawn.y", data.spawnY());
+            yaml.set("spawn.z", data.spawnZ());
+            yaml.set("spawn.yaw", data.spawnYaw());
+            yaml.set("spawn.pitch", data.spawnPitch());
         }
         try {
             yaml.save(file);

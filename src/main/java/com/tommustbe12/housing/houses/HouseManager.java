@@ -67,11 +67,9 @@ public final class HouseManager {
 
         ensureStarterPlatform(world);
 
-        Location spawn = data.spawn();
-        if (spawn == null || spawn.getWorld() == null) {
+        Location spawn = data.spawnInWorld(world);
+        if (spawn == null) {
             spawn = new Location(world, 0.5, starterY() + 1.0, 0.5, 0f, 0f);
-        } else {
-            spawn = new Location(world, spawn.getX(), spawn.getY(), spawn.getZ(), spawn.getYaw(), spawn.getPitch());
         }
 
         ActiveHouse activeHouse = new ActiveHouse(id, data, world, spawn);
@@ -178,11 +176,11 @@ public final class HouseManager {
         World world = Bukkit.getWorld(worldName(owner, slot));
         if (world == null) return null;
         HouseData data = getHouse(owner, slot);
-        Location spawn = data.spawn();
-        if (spawn == null || spawn.getWorld() == null) {
+        Location spawn = data.spawnInWorld(world);
+        if (spawn == null) {
             return new Location(world, 0.5, starterY() + 1.0, 0.5, 0f, 0f);
         }
-        return new Location(world, spawn.getX(), spawn.getY(), spawn.getZ(), spawn.getYaw(), spawn.getPitch());
+        return spawn;
     }
 
     public void scheduleDeactivateIfEmpty(World world) {

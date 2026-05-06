@@ -5,6 +5,8 @@ import com.tommustbe12.housing.gui.ActionsEditor;
 import com.tommustbe12.housing.gui.FunctionsGui;
 import com.tommustbe12.housing.gui.ConditionalGui;
 import com.tommustbe12.housing.gui.ScoreboardEditorGui;
+import com.tommustbe12.housing.gui.CommandsGui;
+import com.tommustbe12.housing.gui.HouseSettingsGui;
 import com.tommustbe12.housing.houses.HouseManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -36,6 +38,8 @@ public final class HouseItemListener implements Listener {
     private final FunctionsGui functionsGui;
     private final ConditionalGui conditionalGui;
     private final ScoreboardEditorGui scoreboardEditorGui;
+    private final CommandsGui commandsGui;
+    private final HouseSettingsGui houseSettingsGui;
 
     private final NamespacedKey housingItemKey;
     private final NamespacedKey hotOwnerKey;
@@ -49,7 +53,7 @@ public final class HouseItemListener implements Listener {
     private static final String TITLE_ICON_PICKER = "Choose Icon";
     private static final String TITLE_DELETE_CONFIRM = "Delete House?";
 
-    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor, FunctionsGui functionsGui, ConditionalGui conditionalGui, ScoreboardEditorGui scoreboardEditorGui) {
+    public HouseItemListener(Plugin plugin, Debug debug, HouseManager houses, ActionsEditor actionsEditor, FunctionsGui functionsGui, ConditionalGui conditionalGui, ScoreboardEditorGui scoreboardEditorGui, CommandsGui commandsGui, HouseSettingsGui houseSettingsGui) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
@@ -57,6 +61,8 @@ public final class HouseItemListener implements Listener {
         this.functionsGui = functionsGui;
         this.conditionalGui = conditionalGui;
         this.scoreboardEditorGui = scoreboardEditorGui;
+        this.commandsGui = commandsGui;
+        this.houseSettingsGui = houseSettingsGui;
         this.housingItemKey = new NamespacedKey(plugin, "housing_item");
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
@@ -89,18 +95,24 @@ public final class HouseItemListener implements Listener {
     private void openMainMenu(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_MAIN);
         fill(inv);
-        inv.setItem(11, named(Material.OAK_DOOR, "§aYour Houses", List.of("§7Create or join your houses.")));
-        boolean inOwnHouse = false;
         var info = houses.getHouseInfoByWorld(player.getWorld());
-        if (info != null && info.owner().equals(player.getUniqueId())) inOwnHouse = true;
+        boolean inOwnHouse = info != null && info.owner().equals(player.getUniqueId());
 
-        if (inOwnHouse) {
-            inv.setItem(13, named(Material.REPEATER, "§bSystems", List.of("§7Customize your house.")));
-            inv.setItem(15, named(Material.FIREWORK_STAR, "§6Hot Houses", List.of("§7Top houses by cookies.")));
-        } else {
+        if (info == null) {
+            // HUB menu
+            inv.setItem(11, named(Material.OAK_DOOR, "§aYour Houses", List.of("§7Create or join your houses.")));
             inv.setItem(13, named(Material.FIREWORK_STAR, "§6Hot Houses", List.of("§7Top houses by cookies.")));
+            inv.setItem(26, named(Material.BARRIER, "§cClose", List.of("§7Close this menu.")));
+        } else if (inOwnHouse) {
+            // Owner house menu
+            inv.setItem(11, named(Material.REPEATER, "§bSystems", List.of("§7Customize your house.")));
+            inv.setItem(13, named(Material.COMPARATOR, "§eSettings", List.of("§7Edit house settings.")));
+            inv.setItem(26, named(Material.BARRIER, "§cBack to Hub", List.of("§7Teleport back to the hub.")));
+        } else {
+            // Visiting menu
+            inv.setItem(13, named(Material.FIREWORK_STAR, "§6Hot Houses", List.of("§7Top houses by cookies.")));
+            inv.setItem(26, named(Material.BARRIER, "§cBack to Hub", List.of("§7Teleport back to the hub.")));
         }
-        inv.setItem(26, named(Material.BARRIER, "§cBack to Hub", List.of("§7Teleport back to the hub.")));
         player.openInventory(inv);
     }
 
@@ -207,7 +219,9 @@ public final class HouseItemListener implements Listener {
         int slot = 0;
         for (var data : top) {
             String name = ChatColor.translateAlternateColorCodes('&', data.name());
-            ItemStack item = named(Material.CAKE, "§6" + name, List.of("§7Cookies: §6" + data.cookies(), "§7Click to join."));
+            Material icon = Material.matchMaterial(data.iconMaterial());
+            if (icon == null) icon = Material.CAKE;
+            ItemStack item = named(icon, "§6" + name, List.of("§7Cookies: §6" + data.cookies(), "§7Click to join."));
             ItemMeta meta = item.getItemMeta();
             meta.getPersistentDataContainer().set(hotOwnerKey, PersistentDataType.STRING, data.owner().toString());
             meta.getPersistentDataContainer().set(hotSlotKey, PersistentDataType.INTEGER, data.slot().index());
@@ -234,6 +248,8 @@ public final class HouseItemListener implements Listener {
                     && !functionsGui.isTitle(title)
                     && (conditionalGui == null || !conditionalGui.isTitle(title))
                     && (scoreboardEditorGui == null || !scoreboardEditorGui.isTitle(title))
+                    && (commandsGui == null || !commandsGui.isTitle(title))
+                    && (houseSettingsGui == null || !houseSettingsGui.isTitle(title))
                     && !title.startsWith(TITLE_ICON_PICKER)
                     && !title.startsWith(TITLE_DELETE_CONFIRM)) return;
 
@@ -262,6 +278,14 @@ public final class HouseItemListener implements Listener {
                 scoreboardEditorGui.handleClick(player, event.getRawSlot(), clicked, () -> openSystemsMenu(player));
                 return;
             }
+            if (commandsGui != null && commandsGui.isTitle(title)) {
+                commandsGui.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openSystemsMenu(player));
+                return;
+            }
+            if (houseSettingsGui != null && houseSettingsGui.isTitle(title)) {
+                houseSettingsGui.handleClick(player, event.getRawSlot(), clicked, () -> openMainMenu(player));
+                return;
+            }
             if (functionsGui.isTitle(title)) {
                 functionsGui.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openSystemsMenu(player));
                 return;
@@ -278,10 +302,18 @@ public final class HouseItemListener implements Listener {
                         }
                         openSystemsMenu(player);
                     }
+                    case COMPARATOR -> {
+                        houseSettingsGui.open(player);
+                    }
                     case FIREWORK_STAR -> openHotMenu(player);
                     case BARRIER -> {
-                        houses.sendToHub(player);
-                        player.closeInventory();
+                        var info = houses.getHouseInfoByWorld(player.getWorld());
+                        if (info == null) {
+                            player.closeInventory();
+                        } else {
+                            houses.sendToHub(player);
+                            player.closeInventory();
+                        }
                     }
                     default -> {
                     }
@@ -357,6 +389,10 @@ public final class HouseItemListener implements Listener {
                     var info = houses.getHouseInfoByWorld(player.getWorld());
                     if (info == null || !info.owner().equals(player.getUniqueId())) return;
                     scoreboardEditorGui.open(player, info.owner(), info.slot());
+                    return;
+                }
+                if (clicked.getType() == Material.COMMAND_BLOCK) {
+                    commandsGui.open(player);
                     return;
                 }
                 if (clicked.getType() == Material.BOOK) {
@@ -462,6 +498,8 @@ public final class HouseItemListener implements Listener {
                 || functionsGui.isTitle(title)
                 || (conditionalGui != null && conditionalGui.isTitle(title))
                 || (scoreboardEditorGui != null && scoreboardEditorGui.isTitle(title))
+                || (commandsGui != null && commandsGui.isTitle(title))
+                || (houseSettingsGui != null && houseSettingsGui.isTitle(title))
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)) {
             event.setCancelled(true);
