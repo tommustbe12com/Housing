@@ -511,6 +511,11 @@ public final class ActionsEditor {
         java.util.List<String> names = collectSounds(session);
         names.sort(String.CASE_INSENSITIVE_ORDER);
 
+        String header = "§7Showing: §f"
+                + (session.soundCategory == null ? "All" : session.soundCategory.name())
+                + "§7  Search: §f" + (session.soundQuery == null ? "" : session.soundQuery);
+        inv.setItem(50, named(Material.PAPER, "§fFilters", java.util.List.of(header, "§7Back clears filters")));
+
         int page = Math.max(0, session.soundPage);
         int perPage = 45;
         int start = page * perPage;
@@ -542,7 +547,7 @@ public final class ActionsEditor {
         inv.setItem(14, named(Material.WATER_BUCKET, "§bWeather", List.of("§7WEATHER_*")));
         inv.setItem(15, named(Material.JUKEBOX, "§fMusic", List.of("§7MUSIC_*")));
         inv.setItem(16, named(Material.REDSTONE, "§6UI", List.of("§7UI_*")));
-        inv.setItem(31, named(Material.SPYGLASS, "§aSearch", List.of("§7Current: §f" + (session.soundQuery == null ? "" : session.soundQuery), "§7Click to type query")));
+        inv.setItem(31, named(Material.SPYGLASS, "§aSearch", List.of("§7Click to type query")));
         inv.setItem(49, named(Material.BARRIER, "§7Back", List.of("§7Return")));
         player.openInventory(inv);
     }
@@ -590,7 +595,11 @@ public final class ActionsEditor {
 
         if (TITLE_PICK_SOUND.equals(title)) {
             if (rawSlot == 49) {
-                openPlaySoundGui(player, session);
+                // Leaving the picker clears search/category so next time you aren't restricted.
+                session.soundCategory = null;
+                session.soundQuery = "";
+                session.soundPage = 0;
+                openSoundsHome(player, session);
                 return;
             }
             if (rawSlot == 45) {
@@ -622,9 +631,11 @@ public final class ActionsEditor {
             if (rawSlot == 31) {
                 prompt(player, "Search sounds (type text, or 'cancel'):", msg -> {
                     if (msg.equalsIgnoreCase("cancel")) return;
+                    session.soundCategory = null;
                     session.soundQuery = msg.trim();
                     session.soundPage = 0;
-                    openSoundsHome(player, session);
+                    // Search shows the matching list immediately (not the category menu)
+                    openSoundPicker(player, session);
                 });
                 return;
             }
