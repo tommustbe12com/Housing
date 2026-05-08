@@ -9,11 +9,13 @@ import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.houses.HouseSlot;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.*;
@@ -22,12 +24,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CustomMenusGui {
     private static final String TITLE_LIST = "Custom Menus";
     private static final String TITLE_EDIT_PREFIX = "Edit Menu: ";
+    private static final String TITLE_DELETE_CONFIRM = "Delete Menu?";
 
     private final Plugin plugin;
     private final ChatPrompts prompts;
     private final ActionsEditor actionsEditor;
     private final HouseManager houses;
     private final CustomMenusService menus;
+    private final NamespacedKey menuIdKey;
 
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
 
@@ -37,10 +41,11 @@ public final class CustomMenusGui {
         this.actionsEditor = actionsEditor;
         this.houses = houses;
         this.menus = menus;
+        this.menuIdKey = new NamespacedKey(plugin, "custom_menu_id");
     }
 
     public boolean isTitle(String title) {
-        return TITLE_LIST.equals(title) || (title != null && title.startsWith(TITLE_EDIT_PREFIX));
+        return TITLE_LIST.equals(title) || TITLE_DELETE_CONFIRM.equals(title) || (title != null && title.startsWith(TITLE_EDIT_PREFIX));
     }
 
     public void open(Player player, Runnable back) {
@@ -65,18 +70,50 @@ public final class CustomMenusGui {
                 return;
             }
             if (rawSlot == 53) {
-                CustomMenu m = new CustomMenu(UUID.randomUUID(), "New Menu", 3);
-                menus.get(s.owner, s.slot).add(m);
-                menus.save(s.owner, s.slot);
-                openList(player, s);
+                prompts.prompt(player, "Enter menu name (or 'cancel'):", msg -> {
+                    if (msg.equalsIgnoreCase("cancel")) return;
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        String name = msg.trim().isBlank() ? "Menu" : msg.trim();
+                        CustomMenu m = new CustomMenu(UUID.randomUUID(), name, 3);
+                        menus.get(s.owner, s.slot).add(m);
+                        menus.save(s.owner, s.slot);
+                        s.openMenuId = m.id();
+                        s.actionMode = CustomMenu.ClickKind.LEFT;
+                        openEditor(player, s, m.id());
+                    });
+                });
                 return;
             }
             if (rawSlot >= 0 && rawSlot < 45) {
                 UUID menuId = menuId(clicked);
                 if (menuId == null) return;
-                s.openMenuId = menuId;
-                s.actionMode = CustomMenu.ClickKind.LEFT;
-                openEditor(player, s, menuId);
+                if (clickType.isRightClick()) {
+                    s.pendingDeleteMenuId = menuId;
+                    openDeleteConfirm(player, s, menuId);
+                } else {
+                    s.openMenuId = menuId;
+                    s.actionMode = CustomMenu.ClickKind.LEFT;
+                    openEditor(player, s, menuId);
+                }
+            }
+            return;
+        }
+
+        if (TITLE_DELETE_CONFIRM.equals(title)) {
+            if (rawSlot == 11) {
+                UUID id = s.pendingDeleteMenuId;
+                if (id != null) {
+                    menus.get(s.owner, s.slot).removeIf(x -> x.id().equals(id));
+                    menus.save(s.owner, s.slot);
+                }
+                s.pendingDeleteMenuId = null;
+                openList(player, s);
+                return;
+            }
+            if (rawSlot == 15 || rawSlot == 26) {
+                s.pendingDeleteMenuId = null;
+                openList(player, s);
+                return;
             }
             return;
         }
@@ -131,16 +168,15 @@ public final class CustomMenusGui {
                 int max = m.rows() * 9;
                 if (rawSlot >= max) return;
                 CustomMenu.SlotActions slotActions = m.slotActions().computeIfAbsent(rawSlot, k -> new CustomMenu.SlotActions());
-                ActionList list = (s.actionMode == CustomMenu.ClickKind.RIGHT) ? slotActions.right() : slotActions.left();
-                String key = "menu:" + m.id() + ":" + rawSlot + ":" + s.actionMode.name().toLowerCase(Locale.ROOT);
-                actionsEditor.openStandaloneHouse(player, s.owner, s.slot, key, list, updated -> {
-                    if (s.actionMode == CustomMenu.ClickKind.RIGHT) {
-                        slotActions.right().actions().clear();
-                        slotActions.right().actions().addAll(updated.actions());
-                    } else {
-                        slotActions.left().actions().clear();
-                        slotActions.left().actions().addAll(updated.actions());
-                    }
+                ActionList source = (s.actionMode == CustomMenu.ClickKind.RIGHT) ? slotActions.right() : slotActions.left();
+                ActionList workingCopy = copyOf(source);
+                String key = "Menu " + m.name() + " (slot " + rawSlot + ", " + (s.actionMode == CustomMenu.ClickKind.RIGHT ? "right" : "left") + ")";
+                actionsEditor.openStandaloneHouse(player, s.owner, s.slot, key, workingCopy, updated -> {
+                    // IMPORTANT: never mutate the same ActionList instance we handed to ActionsEditor,
+                    // otherwise clear()+addAll() can clear the updated list too.
+                    ActionList target = (s.actionMode == CustomMenu.ClickKind.RIGHT) ? slotActions.right() : slotActions.left();
+                    target.actions().clear();
+                    target.actions().addAll(updated.actions());
                     menus.save(s.owner, s.slot);
                 }, () -> openEditor(player, s, m.id()));
             }
@@ -159,13 +195,24 @@ public final class CustomMenusGui {
         fill(inv);
         int i = 0;
         for (CustomMenu m : menus.get(s.owner, s.slot)) {
-            ItemStack it = named(Material.ITEM_FRAME, "§a" + m.name(), List.of("§7Rows: §f" + m.rows(), "§7Click to edit"));
+            ItemStack it = named(Material.ITEM_FRAME, "§a" + m.name(), List.of("§7Rows: §f" + m.rows(), "§7Left-click: edit", "§7Right-click: delete"));
             tagMenuId(it, m.id());
             inv.setItem(i++, it);
             if (i >= 45) break;
         }
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         inv.setItem(53, named(Material.LIME_CONCRETE, "§aCreate Menu", List.of("§7Click to create.")));
+        player.openInventory(inv);
+    }
+
+    private void openDeleteConfirm(Player player, Session s, UUID menuId) {
+        CustomMenu m = menus.find(s.owner, s.slot, menuId);
+        String name = m == null ? "Menu" : m.name();
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_DELETE_CONFIRM);
+        fill(inv);
+        inv.setItem(11, named(Material.RED_CONCRETE, "§cDelete", List.of("§7Delete: §f" + name)));
+        inv.setItem(15, named(Material.LIME_CONCRETE, "§aCancel", List.of("§7Return")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Return")));
         player.openInventory(inv);
     }
 
@@ -230,11 +277,18 @@ public final class CustomMenusGui {
         });
     }
 
+    private static ActionList copyOf(ActionList src) {
+        ActionList out = new ActionList();
+        if (src != null) out.actions().addAll(src.actions());
+        return out;
+    }
+
     private static final class Session {
         private final UUID owner;
         private final HouseSlot slot;
         private final Runnable back;
         private UUID openMenuId;
+        private UUID pendingDeleteMenuId;
         private CustomMenu.ClickKind actionMode = CustomMenu.ClickKind.LEFT;
 
         private Session(UUID owner, HouseSlot slot, Runnable back) {
@@ -258,23 +312,23 @@ public final class CustomMenusGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 
-    private static UUID menuId(ItemStack item) {
+    private UUID menuId(ItemStack item) {
         if (item == null) return null;
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return null;
-        String s = meta.getLocalizedName();
-        if (s == null || !s.startsWith("menu:")) return null;
-        try {
-            return UUID.fromString(s.substring("menu:".length()));
-        } catch (Exception e) {
-            return null;
+        String raw = meta.getPersistentDataContainer().get(menuIdKey, PersistentDataType.STRING);
+        // Fallback for older items (pre-PDC): localizedName "menu:<uuid>"
+        if (raw == null) {
+            String s = meta.getLocalizedName();
+            if (s == null || !s.startsWith("menu:")) return null;
+            try { return UUID.fromString(s.substring("menu:".length())); } catch (Exception e) { return null; }
         }
+        try { return UUID.fromString(raw); } catch (Exception e) { return null; }
     }
 
-    private static void tagMenuId(ItemStack item, UUID id) {
+    private void tagMenuId(ItemStack item, UUID id) {
         ItemMeta meta = item.getItemMeta();
-        meta.setLocalizedName("menu:" + id);
+        meta.getPersistentDataContainer().set(menuIdKey, PersistentDataType.STRING, id.toString());
         item.setItemMeta(meta);
     }
 }
-

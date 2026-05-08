@@ -34,6 +34,8 @@ public final class ActionsEditor {
     private static final String TITLE_PICK_LAYOUT = "Choose Layout";
     private static final String TITLE_PICK_MENU = "Choose Custom Menu";
     private static final String TITLE_CHANGE_VARIABLE = "Edit Stat Change";
+    private static final String TITLE_PLAY_SOUND = "Play Sound";
+    private static final String TITLE_PICK_SOUND = "Choose Sound";
 
     private final Plugin plugin;
     private final Debug debug;
@@ -88,6 +90,10 @@ public final class ActionsEditor {
 
     public boolean isChangeVariableTitle(String title) {
         return TITLE_CHANGE_VARIABLE.equals(title);
+    }
+
+    public boolean isPlaySoundTitle(String title) {
+        return TITLE_PLAY_SOUND.equals(title) || TITLE_PICK_SOUND.equals(title);
     }
 
     public void openEventActions(Player player, UUID owner, HouseSlot slot, String eventKey, Runnable back) {
@@ -221,6 +227,16 @@ public final class ActionsEditor {
                 save(session);
                 openMenuPicker(player);
             }
+            case NOTE_BLOCK -> {
+                list.actions().add(new PlaySoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.0f));
+                session.replaceIndex = list.actions().size() - 1;
+                session.soundName = "ENTITY_EXPERIENCE_ORB_PICKUP";
+                session.soundVolume = 1.0f;
+                session.soundPitch = 1.0f;
+                session.soundPage = 0;
+                save(session);
+                openPlaySoundGui(player, session);
+            }
             case STRUCTURE_BLOCK -> {
                 if (conditionalGui == null) {
                     player.sendMessage("§cConditional editor not available.");
@@ -328,6 +344,7 @@ public final class ActionsEditor {
         inv.setItem(24, named(Material.STRUCTURE_BLOCK, "§eConditional", List.of("§7GUI-based if/else.")));
         inv.setItem(25, named(Material.CHEST, "§6Apply Inventory Layout", List.of("§7Pick a saved layout.")));
         inv.setItem(28, named(Material.ITEM_FRAME, "§aOpen Custom Menu", List.of("§7Pick a custom GUI menu.")));
+        inv.setItem(29, named(Material.NOTE_BLOCK, "§aPlay Sound", List.of("§7Configure sound/volume/pitch.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -460,6 +477,124 @@ public final class ActionsEditor {
         }
     }
 
+    private void openPlaySoundGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_PLAY_SOUND);
+        fill(inv);
+
+        String sound = session.soundName == null ? "" : session.soundName;
+        float volume = session.soundVolume;
+        float pitch = session.soundPitch;
+
+        inv.setItem(11, named(Material.NOTE_BLOCK, "§bSound", List.of("§7Current: §f" + sound, "§7Click to pick")));
+        inv.setItem(13, named(Material.AMETHYST_SHARD, "§aVolume", List.of("§7Current: §f" + volume, "§7Left: +0.1  Right: -0.1", "§7Shift: +/-1.0")));
+        inv.setItem(15, named(Material.PRISMARINE_SHARD, "§dPitch", List.of("§7Current: §f" + pitch, "§7Left: +0.1  Right: -0.1", "§7Shift: +/-1.0")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save and return")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Return")));
+        player.openInventory(inv);
+    }
+
+    private void openSoundPicker(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_SOUND);
+        fill(inv);
+        org.bukkit.Sound[] sounds = org.bukkit.Sound.values();
+        java.util.List<String> names = new java.util.ArrayList<>(sounds.length);
+        for (org.bukkit.Sound s : sounds) names.add(s.name());
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+
+        int page = Math.max(0, session.soundPage);
+        int perPage = 45;
+        int start = page * perPage;
+        if (start >= names.size()) { page = 0; start = 0; }
+        session.soundPage = page;
+
+        int idx = 0;
+        for (int i = start; i < Math.min(names.size(), start + perPage); i++) {
+            String n = names.get(i);
+            ItemStack it = named(Material.NOTE_BLOCK, "§f" + n, java.util.List.of("§7Click to select"));
+            ItemMeta meta = it.getItemMeta();
+            meta.setLocalizedName("sound:" + n);
+            it.setItemMeta(meta);
+            inv.setItem(idx++, it);
+        }
+        inv.setItem(45, named(Material.ARROW, "§7Prev", List.of("§7Page " + (page + 1))));
+        inv.setItem(49, named(Material.BARRIER, "§7Back", List.of("§7Return")));
+        inv.setItem(53, named(Material.ARROW, "§7Next", List.of("§7Page " + (page + 1))));
+        player.openInventory(inv);
+    }
+
+    public void handlePlaySoundClick(Player player, String title, int rawSlot, ItemStack clicked, org.bukkit.event.inventory.ClickType clickType) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+
+        if (TITLE_PLAY_SOUND.equals(title)) {
+            if (rawSlot == 26) {
+                openList(player, session);
+                return;
+            }
+            if (rawSlot == 11) {
+                session.soundPage = 0;
+                openSoundPicker(player, session);
+                return;
+            }
+            if (rawSlot == 13) {
+                float delta = (clickType.isShiftClick() ? 1.0f : 0.1f) * (clickType.isRightClick() ? -1.0f : 1.0f);
+                session.soundVolume = clamp(session.soundVolume + delta, 0.0f, 10.0f);
+                openPlaySoundGui(player, session);
+                return;
+            }
+            if (rawSlot == 15) {
+                float delta = (clickType.isShiftClick() ? 1.0f : 0.1f) * (clickType.isRightClick() ? -1.0f : 1.0f);
+                session.soundPitch = clamp(session.soundPitch + delta, 0.0f, 5.0f);
+                openPlaySoundGui(player, session);
+                return;
+            }
+            if (rawSlot == 22) {
+                int idx = session.replaceIndex == null ? -1 : session.replaceIndex;
+                if (idx < 0 || idx >= session.list().actions().size()) {
+                    openList(player, session);
+                    return;
+                }
+                String sound = session.soundName == null ? "" : session.soundName;
+                session.list().actions().set(idx, new PlaySoundAction(sound, session.soundVolume, session.soundPitch));
+                session.replaceIndex = null;
+                save(session);
+                openList(player, session);
+            }
+            return;
+        }
+
+        if (TITLE_PICK_SOUND.equals(title)) {
+            if (rawSlot == 49) {
+                openPlaySoundGui(player, session);
+                return;
+            }
+            if (rawSlot == 45) {
+                session.soundPage = Math.max(0, session.soundPage - 1);
+                openSoundPicker(player, session);
+                return;
+            }
+            if (rawSlot == 53) {
+                session.soundPage = session.soundPage + 1;
+                openSoundPicker(player, session);
+                return;
+            }
+            if (rawSlot >= 0 && rawSlot < 45) {
+                ItemMeta meta = clicked.getItemMeta();
+                if (meta == null) return;
+                String loc = meta.getLocalizedName();
+                if (loc == null || !loc.startsWith("sound:")) return;
+                session.soundName = loc.substring("sound:".length());
+                openPlaySoundGui(player, session);
+            }
+        }
+    }
+
+    private static float clamp(float v, float min, float max) {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
+    }
+
     private void editAction(Player player, Session session, int index, Action action) {
         ActionList list = session.list();
         if (action instanceof SendChatMessageAction) {
@@ -537,6 +672,15 @@ public final class ActionsEditor {
             openMenuPicker(player);
             return;
         }
+        if (action instanceof PlaySoundAction s) {
+            session.replaceIndex = index;
+            session.soundName = s.sound();
+            session.soundVolume = s.volume();
+            session.soundPitch = s.pitch();
+            session.soundPage = 0;
+            openPlaySoundGui(player, session);
+            return;
+        }
         player.sendMessage("§7No editable values for this action.");
     }
 
@@ -577,6 +721,7 @@ public final class ActionsEditor {
             case "conditional" -> Material.STRUCTURE_BLOCK;
             case "apply_inventory_layout" -> Material.CHEST;
             case "open_custom_menu" -> Material.ITEM_FRAME;
+            case "play_sound" -> Material.NOTE_BLOCK;
             default -> Material.BOOK;
         };
         List<String> lore = new ArrayList<>();
@@ -616,6 +761,9 @@ public final class ActionsEditor {
             lore.add("§7layout: §f" + (inv.layoutId() == null ? "" : inv.layoutId().toString()));
         } else if (action instanceof OpenCustomMenuAction menu) {
             lore.add("§7menu: §f" + (menu.menuId() == null ? "" : menu.menuId().toString()));
+        } else if (action instanceof PlaySoundAction s) {
+            lore.add("§7sound: §f" + s.sound());
+            lore.add("§7vol: §f" + s.volume() + " §7pitch: §f" + s.pitch());
         }
         return lore;
     }
@@ -672,6 +820,10 @@ public final class ActionsEditor {
         private String varKey;
         private String varValue;
         private ChangeVariableAction.Operation varOp;
+        private String soundName;
+        private float soundVolume = 1.0f;
+        private float soundPitch = 1.0f;
+        private int soundPage;
 
         private Session(Kind kind, String key, UUID owner, HouseSlot slot, Map<String, ActionList> events, ActionList standalone, Consumer<ActionList> onSave, Runnable back) {
             this.kind = kind;

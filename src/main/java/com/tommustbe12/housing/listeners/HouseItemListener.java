@@ -115,6 +115,7 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isLayoutPickerTitle(title)
                 || actionsEditor.isMenuPickerTitle(title)
                 || actionsEditor.isChangeVariableTitle(title)
+                || actionsEditor.isPlaySoundTitle(title)
                 || functionsGui.isTitle(title)
                 || (conditionalGui != null && conditionalGui.isTitle(title))
                 || (scoreboardEditorGui != null && scoreboardEditorGui.isTitle(title))
@@ -168,6 +169,10 @@ public final class HouseItemListener implements Listener {
         }
         if (actionsEditor.isChangeVariableTitle(title)) {
             actionsEditor.handleChangeVariableClick(player, event.getRawSlot(), clicked);
+            return;
+        }
+        if (actionsEditor.isPlaySoundTitle(title)) {
+            actionsEditor.handlePlaySoundClick(player, title, event.getRawSlot(), clicked, event.getClick());
             return;
         }
         if (conditionalGui != null && conditionalGui.isTitle(title)) {
