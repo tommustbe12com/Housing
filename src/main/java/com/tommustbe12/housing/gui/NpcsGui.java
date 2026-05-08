@@ -30,6 +30,7 @@ public final class NpcsGui {
     private final ActionsEditor actionsEditor;
 
     private final ConcurrentHashMap<UUID, UUID> equipSessionNpcId = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, UUID> editSessionNpcId = new ConcurrentHashMap<>();
 
     public NpcsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, NpcManager npcs, ActionsEditor actionsEditor) {
         this.plugin = plugin;
@@ -62,6 +63,7 @@ public final class NpcsGui {
     }
 
     public void openNpcEditor(Player player, UUID owner, HouseSlot slot, NpcData npc) {
+        editSessionNpcId.put(player.getUniqueId(), npc.id());
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_EDIT_PREFIX + npc.name());
         fill(inv);
         inv.setItem(11, named(Material.NAME_TAG, "§aName", List.of("§7Current: §f" + npc.name(), "§7Click to rename")));
@@ -108,7 +110,7 @@ public final class NpcsGui {
         }
 
         if (title != null && title.startsWith(TITLE_EDIT_PREFIX)) {
-            NpcData npc = findNpcByTitle(info.owner(), info.slot(), player, title);
+            NpcData npc = findNpcBySession(info.owner(), info.slot(), player);
             if (npc == null) return;
             if (clicked.getType() == Material.ARROW) { open(player); return; }
             if (clicked.getType() == Material.NAME_TAG) {
@@ -207,10 +209,11 @@ public final class NpcsGui {
         npcs.refreshNpcEntity(info.owner(), info.slot(), player.getWorld(), npc);
     }
 
-    private NpcData findNpcByTitle(UUID owner, HouseSlot slot, Player player, String title) {
-        String name = title.substring(TITLE_EDIT_PREFIX.length());
+    private NpcData findNpcBySession(UUID owner, HouseSlot slot, Player player) {
+        UUID npcId = editSessionNpcId.get(player.getUniqueId());
+        if (npcId == null) return null;
         for (NpcData npc : npcs.getNpcs(owner, slot, player.getWorld())) {
-            if (npc.name().equals(name)) return npc;
+            if (npc.id().equals(npcId)) return npc;
         }
         return null;
     }

@@ -1,0 +1,69 @@
+package com.tommustbe12.housing.listeners;
+
+import com.tommustbe12.housing.gui.CustomMenusGui;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.ItemStack;
+
+public final class CustomMenusGuiListener implements Listener {
+    private final CustomMenusGui gui;
+
+    public CustomMenusGuiListener(CustomMenusGui gui) {
+        this.gui = gui;
+    }
+
+    @EventHandler
+    public void onClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getView().getType() != InventoryType.CHEST) return;
+        String title = event.getView().getTitle();
+        if (!gui.isTitle(title)) return;
+
+        // In the editor (top inventory), allow placing items, but protect the control row from taking items.
+        int raw = event.getRawSlot();
+        if (title != null && title.startsWith("Edit Menu: ")) {
+            int topSize = event.getView().getTopInventory().getSize();
+            if (raw >= 45 && raw < topSize) event.setCancelled(true);
+            ItemStack current = event.getCurrentItem();
+            if (raw >= 0 && raw < 45 && current != null && current.getType() == org.bukkit.Material.BLACK_STAINED_GLASS_PANE) {
+                event.setCancelled(true);
+            }
+        } else {
+            event.setCancelled(true);
+        }
+
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType().isAir()) return;
+        gui.handleClick(player, title, raw, clicked, event.getClick());
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        String title = event.getView().getTitle();
+        if (!gui.isTitle(title)) return;
+        if (title != null && title.startsWith("Edit Menu: ")) {
+            for (int slot : event.getRawSlots()) {
+                if (slot >= 45 && slot < event.getView().getTopInventory().getSize()) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+        } else {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+        String title = event.getView().getTitle();
+        if (!gui.isTitle(title)) return;
+        gui.handleClose(player, event.getInventory());
+    }
+}

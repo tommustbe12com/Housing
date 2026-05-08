@@ -52,7 +52,9 @@ public final class NpcManager {
 
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders ph = new Placeholders(vars);
-        this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {}, new InventoryLayoutsService(plugin));
+        this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {},
+                new InventoryLayoutsService(plugin),
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses));
 
         this.citizensAvailable = plugin.getServer().getPluginManager().isPluginEnabled("Citizens");
     }

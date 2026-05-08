@@ -20,7 +20,9 @@ public final class HouseCommandSuggestionsListener implements Listener {
         this.storage = new HouseCommandsStorage(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders ph = new Placeholders(vars);
-        this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {}, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin));
+        this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {},
+                new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin),
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses));
     }
 
     @EventHandler

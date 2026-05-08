@@ -63,7 +63,11 @@ public final class Placeholders {
             File file = new File(housesDir, ctx.houseOwner() + "-" + ctx.houseSlot().index() + ".yml");
             if (!file.exists()) return "";
             YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
-            if ("cookies".equalsIgnoreCase(key)) return Integer.toString(yaml.getInt("cookies", 0));
+            if ("cookies".equalsIgnoreCase(key)) {
+                // New format: cookies.week + cookies.count (fallback to old cookies key)
+                int count = yaml.getInt("cookies.count", yaml.getInt("cookies", 0));
+                return Integer.toString(count);
+            }
             if ("house".equalsIgnoreCase(key)) return yaml.getString("name", "");
             return "";
         } catch (Exception e) {

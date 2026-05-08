@@ -33,7 +33,9 @@ public final class HouseActionsService {
         this.functions = new FunctionStorage(plugin);
         VariablesStore variables = new VariablesStore(plugin);
         Placeholders placeholders = new Placeholders(variables);
-        this.codec = new SimpleActionCodec(placeholders, variables, houses, this::runFunction, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin));
+        this.codec = new SimpleActionCodec(placeholders, variables, houses, this::runFunction,
+                new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin),
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses));
     }
 
     public void runEvent(UUID owner, HouseSlot slot, World world, Player player, String eventKey) {

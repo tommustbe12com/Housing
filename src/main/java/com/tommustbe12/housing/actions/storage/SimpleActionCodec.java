@@ -15,6 +15,8 @@ import com.tommustbe12.housing.actions.impl.SendToHubAction;
 import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
 import com.tommustbe12.housing.actions.impl.ConditionalAction;
 import com.tommustbe12.housing.actions.impl.ApplyInventoryLayoutAction;
+import com.tommustbe12.housing.actions.impl.OpenCustomMenuAction;
+import com.tommustbe12.housing.actions.impl.PlaySoundAction;
 import com.tommustbe12.housing.actions.ActionList;
 import com.tommustbe12.housing.actions.conditions.*;
 import com.tommustbe12.housing.util.ItemStackSerialization;
@@ -22,6 +24,7 @@ import com.tommustbe12.housing.actions.placeholders.Placeholders;
 import com.tommustbe12.housing.actions.placeholders.VariablesStore;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService;
+import com.tommustbe12.housing.custommenus.CustomMenusService;
 
 import java.util.Map;
 import java.util.UUID;
@@ -32,13 +35,15 @@ public final class SimpleActionCodec implements ActionCodec {
     private final HouseManager houses;
     private final RunFunctionAction.FunctionRunner functionRunner;
     private final InventoryLayoutsService inventoryLayouts;
+    private final CustomMenusService customMenus;
 
-    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner, InventoryLayoutsService inventoryLayouts) {
+    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner, InventoryLayoutsService inventoryLayouts, CustomMenusService customMenus) {
         this.placeholders = placeholders;
         this.variables = variables;
         this.houses = houses;
         this.functionRunner = functionRunner;
         this.inventoryLayouts = inventoryLayouts;
+        this.customMenus = customMenus;
     }
 
     @Override
@@ -48,7 +53,8 @@ public final class SimpleActionCodec implements ActionCodec {
         return switch (type) {
             case "chat_message" -> new SendChatMessageAction(placeholders, string(map, "message"));
             case "send_to_hub" -> new SendToHubAction(houses);
-            case "change_variable" -> new ChangeVariableAction(variables, placeholders, string(map, "key"), string(map, "value"));
+            case "change_variable" -> new ChangeVariableAction(variables, placeholders, string(map, "key"), string(map, "value"),
+                    parseOp(string(map, "op")));
             case "kill_player" -> new KillPlayerAction();
             case "full_heal" -> new FullHealAction();
             case "reset_inventory" -> new ResetInventoryAction();
@@ -73,6 +79,12 @@ public final class SimpleActionCodec implements ActionCodec {
                 UUID id = null;
                 try { id = UUID.fromString(string(map, "layoutId")); } catch (Exception ignored) {}
                 yield new ApplyInventoryLayoutAction(inventoryLayouts, id);
+            }
+            case "play_sound" -> new PlaySoundAction(string(map, "sound"), (float) doubleNum(map, "volume", 1.0), (float) doubleNum(map, "pitch", 1.0));
+            case "open_custom_menu" -> {
+                UUID id = null;
+                try { id = UUID.fromString(string(map, "menuId")); } catch (Exception ignored) {}
+                yield new OpenCustomMenuAction(customMenus, id);
             }
             case "conditional" -> decodeConditional(map);
             default -> null;
@@ -115,6 +127,10 @@ public final class SimpleActionCodec implements ActionCodec {
 
     private static CompareOp parseCompare(String raw) {
         try { return CompareOp.valueOf(raw.trim().toUpperCase()); } catch (Exception e) { return CompareOp.EQ; }
+    }
+
+    private static ChangeVariableAction.Operation parseOp(String raw) {
+        try { return ChangeVariableAction.Operation.valueOf(raw.trim().toUpperCase()); } catch (Exception e) { return ChangeVariableAction.Operation.SET; }
     }
 
     private static double doubleNum(Map<?, ?> map, String key, double def) {

@@ -3,6 +3,8 @@ package com.tommustbe12.housing.actions.storage;
 import com.tommustbe12.housing.actions.Action;
 import com.tommustbe12.housing.actions.impl.ApplyPotionEffectAction;
 import com.tommustbe12.housing.actions.impl.ApplyInventoryLayoutAction;
+import com.tommustbe12.housing.actions.impl.OpenCustomMenuAction;
+import com.tommustbe12.housing.actions.impl.PlaySoundAction;
 import com.tommustbe12.housing.actions.impl.ChangeVariableAction;
 import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.RunFunctionAction;
@@ -27,6 +29,7 @@ public final class SimpleActionSerializer implements ActionSerializer {
         } else if (action instanceof ChangeVariableAction var) {
             out.put("key", var.key());
             out.put("value", var.value());
+            out.put("op", var.operation().name());
         } else if (action instanceof DisplayActionBarAction bar) {
             out.put("message", bar.message());
         } else if (action instanceof DisplayTitleAction title) {
@@ -46,6 +49,12 @@ public final class SimpleActionSerializer implements ActionSerializer {
             out.put("global", fn.global());
         } else if (action instanceof ApplyInventoryLayoutAction inv) {
             out.put("layoutId", inv.layoutId() == null ? "" : inv.layoutId().toString());
+        } else if (action instanceof PlaySoundAction sound) {
+            out.put("sound", sound.sound());
+            out.put("volume", sound.volume());
+            out.put("pitch", sound.pitch());
+        } else if (action instanceof OpenCustomMenuAction menu) {
+            out.put("menuId", menu.menuId() == null ? "" : menu.menuId().toString());
         } else if (action instanceof ConditionalAction cond) {
             out.put("matchAny", cond.matchAny());
             out.put("conditions", cond.conditions().stream().map(SimpleActionSerializer::serializeCondition).toList());

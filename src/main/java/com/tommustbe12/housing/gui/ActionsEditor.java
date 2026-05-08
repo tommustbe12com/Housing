@@ -32,6 +32,8 @@ public final class ActionsEditor {
     private static final String TITLE_ADD = "Add Action";
     private static final String TITLE_PICK_FUNCTION = "Choose Function";
     private static final String TITLE_PICK_LAYOUT = "Choose Layout";
+    private static final String TITLE_PICK_MENU = "Choose Custom Menu";
+    private static final String TITLE_CHANGE_VARIABLE = "Edit Stat Change";
 
     private final Plugin plugin;
     private final Debug debug;
@@ -78,6 +80,14 @@ public final class ActionsEditor {
 
     public boolean isLayoutPickerTitle(String title) {
         return TITLE_PICK_LAYOUT.equals(title);
+    }
+
+    public boolean isMenuPickerTitle(String title) {
+        return TITLE_PICK_MENU.equals(title);
+    }
+
+    public boolean isChangeVariableTitle(String title) {
+        return TITLE_CHANGE_VARIABLE.equals(title);
     }
 
     public void openEventActions(Player player, UUID owner, HouseSlot slot, String eventKey, Runnable back) {
@@ -176,13 +186,16 @@ public final class ActionsEditor {
                 save(session);
                 openList(player, session);
             }
-            case COMPARATOR -> prompt(player, "Enter variable key then = then value (ex: %stat.kills%=5):", msg -> {
-                String[] parts = msg.split("=", 2);
-                if (parts.length < 2) return;
-                list.actions().add(new ChangeVariableAction(variables, placeholders, parts[0].trim(), parts[1].trim()));
+            case COMPARATOR -> {
+                ChangeVariableAction action = new ChangeVariableAction(variables, placeholders, "%stat.kills%", "1", ChangeVariableAction.Operation.ADD);
+                list.actions().add(action);
+                session.replaceIndex = list.actions().size() - 1;
+                session.varKey = action.key();
+                session.varValue = action.value();
+                session.varOp = action.operation();
                 save(session);
-                openList(player, session);
-            });
+                openChangeVariableGui(player, session);
+            }
             case EXPERIENCE_BOTTLE -> prompt(player, "Enter levels (number):", msg -> {
                 list.actions().add(new GiveExpLevelsAction(Integer.parseInt(msg.trim())));
                 save(session);
@@ -202,6 +215,12 @@ public final class ActionsEditor {
             });
             case REPEATER -> openFunctionPicker(player);
             case CHEST -> openLayoutPicker(player);
+            case ITEM_FRAME -> {
+                list.actions().add(new OpenCustomMenuAction(new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), null));
+                session.replaceIndex = list.actions().size() - 1;
+                save(session);
+                openMenuPicker(player);
+            }
             case STRUCTURE_BLOCK -> {
                 if (conditionalGui == null) {
                     player.sendMessage("§cConditional editor not available.");
@@ -258,6 +277,26 @@ public final class ActionsEditor {
         openList(player, session);
     }
 
+    public void handleMenuPickerClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) {
+            openAddPicker(player);
+            return;
+        }
+        UUID id = parseMenuId(clicked);
+        if (id == null) return;
+        if (session.replaceIndex != null && session.replaceIndex >= 0 && session.replaceIndex < session.list().actions().size()) {
+            session.list().actions().set(session.replaceIndex, new OpenCustomMenuAction(new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), id));
+            session.replaceIndex = null;
+        } else {
+            session.list().actions().add(new OpenCustomMenuAction(new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), id));
+        }
+        save(session);
+        openList(player, session);
+    }
+
     private void openList(Player player, Session session) {
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_PREFIX + session.key);
         fill(inv);
@@ -288,6 +327,7 @@ public final class ActionsEditor {
         inv.setItem(23, named(Material.REPEATER, "§fRun Function", List.of("§7Pick a function.")));
         inv.setItem(24, named(Material.STRUCTURE_BLOCK, "§eConditional", List.of("§7GUI-based if/else.")));
         inv.setItem(25, named(Material.CHEST, "§6Apply Inventory Layout", List.of("§7Pick a saved layout.")));
+        inv.setItem(28, named(Material.ITEM_FRAME, "§aOpen Custom Menu", List.of("§7Pick a custom GUI menu.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -329,6 +369,97 @@ public final class ActionsEditor {
         player.openInventory(inv);
     }
 
+    private void openMenuPicker(Player player) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (session.owner.getMostSignificantBits() == 0L && session.owner.getLeastSignificantBits() == 0L) {
+            player.sendMessage("§cCustom Menus require a house context.");
+            return;
+        }
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_MENU);
+        fill(inv);
+        int i = 0;
+        var list = new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses).get(session.owner, session.slot);
+        for (var m : list) {
+            ItemStack it = named(Material.ITEM_FRAME, "§a" + m.name(), List.of("§7Rows: §f" + m.rows(), "§7Click to select"));
+            tagMenuId(it, m.id());
+            inv.setItem(i++, it);
+            if (i >= 45) break;
+        }
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private void openChangeVariableGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_CHANGE_VARIABLE);
+        fill(inv);
+
+        String opName = session.varOp == null ? ChangeVariableAction.Operation.ADD.name() : session.varOp.name();
+        String key = session.varKey == null ? "" : session.varKey;
+        String value = session.varValue == null ? "1" : session.varValue;
+
+        inv.setItem(11, named(Material.COMPARATOR, "§eOperation: §f" + opName, List.of("§7Click to cycle", "§7ADD/SUBTRACT/SET")));
+        inv.setItem(13, named(Material.NAME_TAG, "§bStat Key", List.of("§7Current: §f" + key, "§7Click to change")));
+        inv.setItem(15, named(Material.EXPERIENCE_BOTTLE, "§aAmount", List.of("§7Current: §f" + value, "§7Click to change")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save and return")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel/return")));
+        player.openInventory(inv);
+    }
+
+    public void handleChangeVariableClick(Player player, int rawSlot, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_CHANGE_VARIABLE.equals(player.getOpenInventory().getTitle())) return;
+
+        if (rawSlot == 26) {
+            openList(player, session);
+            return;
+        }
+        if (rawSlot == 11) {
+            ChangeVariableAction.Operation current = session.varOp == null ? ChangeVariableAction.Operation.ADD : session.varOp;
+            ChangeVariableAction.Operation next = switch (current) {
+                case ADD -> ChangeVariableAction.Operation.SUBTRACT;
+                case SUBTRACT -> ChangeVariableAction.Operation.SET;
+                case SET -> ChangeVariableAction.Operation.ADD;
+            };
+            session.varOp = next;
+            openChangeVariableGui(player, session);
+            return;
+        }
+        if (rawSlot == 13) {
+            prompt(player, "Type stat key (ex: %stat.kills%) or 'cancel':", msg -> {
+                String trimmed = msg.trim();
+                if (trimmed.equalsIgnoreCase("cancel")) return;
+                session.varKey = trimmed;
+                openChangeVariableGui(player, session);
+            });
+            return;
+        }
+        if (rawSlot == 15) {
+            prompt(player, "Type amount (number) or 'cancel':", msg -> {
+                String trimmed = msg.trim();
+                if (trimmed.equalsIgnoreCase("cancel")) return;
+                session.varValue = trimmed.isBlank() ? "1" : trimmed;
+                openChangeVariableGui(player, session);
+            });
+            return;
+        }
+        if (rawSlot == 22) {
+            int idx = session.replaceIndex == null ? -1 : session.replaceIndex;
+            if (idx < 0 || idx >= session.list().actions().size()) {
+                openList(player, session);
+                return;
+            }
+            ChangeVariableAction.Operation op = session.varOp == null ? ChangeVariableAction.Operation.ADD : session.varOp;
+            String key = session.varKey == null ? "" : session.varKey;
+            String value = session.varValue == null ? "1" : session.varValue;
+            session.list().actions().set(idx, new ChangeVariableAction(variables, placeholders, key, value, op));
+            session.replaceIndex = null;
+            save(session);
+            openList(player, session);
+        }
+    }
+
     private void editAction(Player player, Session session, int index, Action action) {
         ActionList list = session.list();
         if (action instanceof SendChatMessageAction) {
@@ -357,13 +488,12 @@ public final class ActionsEditor {
             return;
         }
         if (action instanceof ChangeVariableAction) {
-            prompt(player, "Edit key=value:", msg -> {
-                String[] parts = msg.split("=", 2);
-                if (parts.length < 2) return;
-                list.actions().set(index, new ChangeVariableAction(variables, placeholders, parts[0].trim(), parts[1].trim()));
-                save(session);
-                openList(player, session);
-            });
+            ChangeVariableAction v = (ChangeVariableAction) action;
+            session.replaceIndex = index;
+            session.varKey = v.key();
+            session.varValue = v.value();
+            session.varOp = v.operation();
+            openChangeVariableGui(player, session);
             return;
         }
         if (action instanceof GiveExpLevelsAction) {
@@ -402,6 +532,11 @@ public final class ActionsEditor {
             }, () -> openList(player, session));
             return;
         }
+        if (action instanceof OpenCustomMenuAction) {
+            session.replaceIndex = index;
+            openMenuPicker(player);
+            return;
+        }
         player.sendMessage("§7No editable values for this action.");
     }
 
@@ -414,7 +549,8 @@ public final class ActionsEditor {
     }
 
     private SimpleActionCodec newCodec() {
-        return new SimpleActionCodec(placeholders, variables, houses, (ctx, fn, global) -> {}, inventoryLayouts);
+        return new SimpleActionCodec(placeholders, variables, houses, (ctx, fn, global) -> {}, inventoryLayouts,
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses));
     }
 
     private void prompt(Player player, String question, Consumer<String> onOk) {
@@ -440,6 +576,7 @@ public final class ActionsEditor {
             case "run_function" -> Material.REPEATER;
             case "conditional" -> Material.STRUCTURE_BLOCK;
             case "apply_inventory_layout" -> Material.CHEST;
+            case "open_custom_menu" -> Material.ITEM_FRAME;
             default -> Material.BOOK;
         };
         List<String> lore = new ArrayList<>();
@@ -459,7 +596,13 @@ public final class ActionsEditor {
             lore.add("§7title: §f" + ChatColor.translateAlternateColorCodes('&', t.title()));
             if (!t.subtitle().isBlank()) lore.add("§7sub: §f" + ChatColor.translateAlternateColorCodes('&', t.subtitle()));
         } else if (action instanceof ChangeVariableAction v) {
-            lore.add("§7set: §f" + v.key() + " §7= §f" + v.value());
+            String op = switch (v.operation()) {
+                case ADD -> "+=";
+                case SUBTRACT -> "-=";
+                case SET -> "=";
+            };
+            lore.add("§7stat: §f" + v.key());
+            lore.add("§7op: §f" + op + " " + v.value());
         } else if (action instanceof GiveExpLevelsAction exp) {
             lore.add("§7levels: §f" + exp.levels());
         } else if (action instanceof ApplyPotionEffectAction pot) {
@@ -471,6 +614,8 @@ public final class ActionsEditor {
             lore.add("§7then: §f" + cond.thenList().actions().size() + " §7else: §f" + (cond.elseList() == null ? 0 : cond.elseList().actions().size()));
         } else if (action instanceof ApplyInventoryLayoutAction inv) {
             lore.add("§7layout: §f" + (inv.layoutId() == null ? "" : inv.layoutId().toString()));
+        } else if (action instanceof OpenCustomMenuAction menu) {
+            lore.add("§7menu: §f" + (menu.menuId() == null ? "" : menu.menuId().toString()));
         }
         return lore;
     }
@@ -493,6 +638,25 @@ public final class ActionsEditor {
         return s.replaceAll("§.", "");
     }
 
+    private static UUID parseMenuId(ItemStack item) {
+        if (item == null) return null;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return null;
+        String s = meta.getLocalizedName();
+        if (s == null || !s.startsWith("menu:")) return null;
+        try {
+            return UUID.fromString(s.substring("menu:".length()));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void tagMenuId(ItemStack item, UUID id) {
+        ItemMeta meta = item.getItemMeta();
+        meta.setLocalizedName("menu:" + id);
+        item.setItemMeta(meta);
+    }
+
     private enum Kind { HOUSE_EVENT, STANDALONE }
 
     private static final class Session {
@@ -504,6 +668,10 @@ public final class ActionsEditor {
         private final ActionList standalone;
         private final Consumer<ActionList> onSave;
         private final Runnable back;
+        private Integer replaceIndex;
+        private String varKey;
+        private String varValue;
+        private ChangeVariableAction.Operation varOp;
 
         private Session(Kind kind, String key, UUID owner, HouseSlot slot, Map<String, ActionList> events, ActionList standalone, Consumer<ActionList> onSave, Runnable back) {
             this.kind = kind;
