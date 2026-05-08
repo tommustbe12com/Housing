@@ -17,10 +17,12 @@ import com.tommustbe12.housing.houses.HouseSlot;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.*;
@@ -35,6 +37,7 @@ public final class ActionsEditor {
     private static final String TITLE_PICK_MENU = "Choose Custom Menu";
     private static final String TITLE_CHANGE_VARIABLE = "Edit Stat Change";
     private static final String TITLE_PLAY_SOUND = "Play Sound";
+    private static final String TITLE_SOUNDS = "Sounds";
     private static final String TITLE_PICK_SOUND = "Choose Sound";
 
     private final Plugin plugin;
@@ -48,6 +51,8 @@ public final class ActionsEditor {
     private final VariablesStore variables;
     private final Placeholders placeholders;
     private final com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService inventoryLayouts;
+    private final NamespacedKey menuPickIdKey;
+    private final NamespacedKey soundPickIdKey;
 
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private ConditionalGui conditionalGui;
@@ -62,6 +67,8 @@ public final class ActionsEditor {
         this.variables = new VariablesStore(plugin);
         this.placeholders = new Placeholders(variables);
         this.inventoryLayouts = new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin);
+        this.menuPickIdKey = new NamespacedKey(plugin, "pick_menu_id");
+        this.soundPickIdKey = new NamespacedKey(plugin, "pick_sound");
     }
 
     public void setConditionalGui(ConditionalGui conditionalGui) {
@@ -93,7 +100,7 @@ public final class ActionsEditor {
     }
 
     public boolean isPlaySoundTitle(String title) {
-        return TITLE_PLAY_SOUND.equals(title) || TITLE_PICK_SOUND.equals(title);
+        return TITLE_PLAY_SOUND.equals(title) || TITLE_SOUNDS.equals(title) || TITLE_PICK_SOUND.equals(title);
     }
 
     public void openEventActions(Player player, UUID owner, HouseSlot slot, String eventKey, Runnable back) {
@@ -234,6 +241,8 @@ public final class ActionsEditor {
                 session.soundVolume = 1.0f;
                 session.soundPitch = 1.0f;
                 session.soundPage = 0;
+                session.soundCategory = null;
+                session.soundQuery = "";
                 save(session);
                 openPlaySoundGui(player, session);
             }
@@ -302,7 +311,10 @@ public final class ActionsEditor {
             return;
         }
         UUID id = parseMenuId(clicked);
-        if (id == null) return;
+        if (id == null) {
+            player.sendMessage("§cCouldn't read menu id from that item.");
+            return;
+        }
         if (session.replaceIndex != null && session.replaceIndex >= 0 && session.replaceIndex < session.list().actions().size()) {
             session.list().actions().set(session.replaceIndex, new OpenCustomMenuAction(new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), id));
             session.replaceIndex = null;
@@ -496,9 +508,7 @@ public final class ActionsEditor {
     private void openSoundPicker(Player player, Session session) {
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_SOUND);
         fill(inv);
-        org.bukkit.Sound[] sounds = org.bukkit.Sound.values();
-        java.util.List<String> names = new java.util.ArrayList<>(sounds.length);
-        for (org.bukkit.Sound s : sounds) names.add(s.name());
+        java.util.List<String> names = collectSounds(session);
         names.sort(String.CASE_INSENSITIVE_ORDER);
 
         int page = Math.max(0, session.soundPage);
@@ -512,13 +522,28 @@ public final class ActionsEditor {
             String n = names.get(i);
             ItemStack it = named(Material.NOTE_BLOCK, "§f" + n, java.util.List.of("§7Click to select"));
             ItemMeta meta = it.getItemMeta();
-            meta.setLocalizedName("sound:" + n);
+            meta.getPersistentDataContainer().set(soundPickIdKey, PersistentDataType.STRING, n);
             it.setItemMeta(meta);
             inv.setItem(idx++, it);
         }
         inv.setItem(45, named(Material.ARROW, "§7Prev", List.of("§7Page " + (page + 1))));
         inv.setItem(49, named(Material.BARRIER, "§7Back", List.of("§7Return")));
         inv.setItem(53, named(Material.ARROW, "§7Next", List.of("§7Page " + (page + 1))));
+        player.openInventory(inv);
+    }
+
+    private void openSoundsHome(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_SOUNDS);
+        fill(inv);
+        inv.setItem(10, named(Material.WITHER_ROSE, "§cMobs", List.of("§7ENTITY_* (mob-ish)")));
+        inv.setItem(11, named(Material.GRASS_BLOCK, "§aBlocks", List.of("§7BLOCK_*")));
+        inv.setItem(12, named(Material.CHEST, "§eItems", List.of("§7ITEM_*")));
+        inv.setItem(13, named(Material.NOTE_BLOCK, "§dAmbient", List.of("§7AMBIENT_*")));
+        inv.setItem(14, named(Material.WATER_BUCKET, "§bWeather", List.of("§7WEATHER_*")));
+        inv.setItem(15, named(Material.JUKEBOX, "§fMusic", List.of("§7MUSIC_*")));
+        inv.setItem(16, named(Material.REDSTONE, "§6UI", List.of("§7UI_*")));
+        inv.setItem(31, named(Material.SPYGLASS, "§aSearch", List.of("§7Current: §f" + (session.soundQuery == null ? "" : session.soundQuery), "§7Click to type query")));
+        inv.setItem(49, named(Material.BARRIER, "§7Back", List.of("§7Return")));
         player.openInventory(inv);
     }
 
@@ -533,18 +558,18 @@ public final class ActionsEditor {
             }
             if (rawSlot == 11) {
                 session.soundPage = 0;
-                openSoundPicker(player, session);
+                openSoundsHome(player, session);
                 return;
             }
             if (rawSlot == 13) {
                 float delta = (clickType.isShiftClick() ? 1.0f : 0.1f) * (clickType.isRightClick() ? -1.0f : 1.0f);
-                session.soundVolume = clamp(session.soundVolume + delta, 0.0f, 10.0f);
+                session.soundVolume = round1(clamp(session.soundVolume + delta, 0.0f, 2.0f));
                 openPlaySoundGui(player, session);
                 return;
             }
             if (rawSlot == 15) {
                 float delta = (clickType.isShiftClick() ? 1.0f : 0.1f) * (clickType.isRightClick() ? -1.0f : 1.0f);
-                session.soundPitch = clamp(session.soundPitch + delta, 0.0f, 5.0f);
+                session.soundPitch = round1(clamp(session.soundPitch + delta, 0.5f, 2.0f));
                 openPlaySoundGui(player, session);
                 return;
             }
@@ -581,11 +606,35 @@ public final class ActionsEditor {
             if (rawSlot >= 0 && rawSlot < 45) {
                 ItemMeta meta = clicked.getItemMeta();
                 if (meta == null) return;
-                String loc = meta.getLocalizedName();
-                if (loc == null || !loc.startsWith("sound:")) return;
-                session.soundName = loc.substring("sound:".length());
+                String picked = meta.getPersistentDataContainer().get(soundPickIdKey, PersistentDataType.STRING);
+                if (picked == null || picked.isBlank()) return;
+                session.soundName = picked;
                 openPlaySoundGui(player, session);
             }
+            return;
+        }
+
+        if (TITLE_SOUNDS.equals(title)) {
+            if (rawSlot == 49) {
+                openPlaySoundGui(player, session);
+                return;
+            }
+            if (rawSlot == 31) {
+                prompt(player, "Search sounds (type text, or 'cancel'):", msg -> {
+                    if (msg.equalsIgnoreCase("cancel")) return;
+                    session.soundQuery = msg.trim();
+                    session.soundPage = 0;
+                    openSoundsHome(player, session);
+                });
+                return;
+            }
+            if (rawSlot == 10) { session.soundCategory = SoundCategory.MOBS; session.soundPage = 0; openSoundPicker(player, session); return; }
+            if (rawSlot == 11) { session.soundCategory = SoundCategory.BLOCKS; session.soundPage = 0; openSoundPicker(player, session); return; }
+            if (rawSlot == 12) { session.soundCategory = SoundCategory.ITEMS; session.soundPage = 0; openSoundPicker(player, session); return; }
+            if (rawSlot == 13) { session.soundCategory = SoundCategory.AMBIENT; session.soundPage = 0; openSoundPicker(player, session); return; }
+            if (rawSlot == 14) { session.soundCategory = SoundCategory.WEATHER; session.soundPage = 0; openSoundPicker(player, session); return; }
+            if (rawSlot == 15) { session.soundCategory = SoundCategory.MUSIC; session.soundPage = 0; openSoundPicker(player, session); return; }
+            if (rawSlot == 16) { session.soundCategory = SoundCategory.UI; session.soundPage = 0; openSoundPicker(player, session); return; }
         }
     }
 
@@ -593,6 +642,50 @@ public final class ActionsEditor {
         if (v < min) return min;
         if (v > max) return max;
         return v;
+    }
+
+    private static float round1(float v) {
+        return Math.round(v * 10.0f) / 10.0f;
+    }
+
+    private enum SoundCategory { MOBS, BLOCKS, ITEMS, AMBIENT, WEATHER, MUSIC, UI }
+
+    private java.util.List<String> collectSounds(Session session) {
+        org.bukkit.Sound[] sounds = org.bukkit.Sound.values();
+        java.util.List<String> names = new java.util.ArrayList<>(sounds.length);
+        for (org.bukkit.Sound s : sounds) names.add(s.name());
+
+        // Category filter (optional)
+        if (session.soundCategory != null) {
+            String prefix = switch (session.soundCategory) {
+                case BLOCKS -> "BLOCK_";
+                case ITEMS -> "ITEM_";
+                case AMBIENT -> "AMBIENT_";
+                case WEATHER -> "WEATHER_";
+                case MUSIC -> "MUSIC_";
+                case UI -> "UI_";
+                case MOBS -> "ENTITY_";
+            };
+            names.removeIf(n -> !n.startsWith(prefix));
+        }
+
+        // Search filter (optional, case-insensitive)
+        String q = session.soundQuery;
+        if (q != null && !q.isBlank()) {
+            String needle = q.trim().toLowerCase(java.util.Locale.ROOT);
+            names.removeIf(n -> !n.toLowerCase(java.util.Locale.ROOT).contains(needle));
+        }
+
+        // If MOBS category and ENTITY_ produced nothing (older enums), fall back to unfiltered list+search
+        if (names.isEmpty() && session.soundCategory != null) {
+            names.clear();
+            for (org.bukkit.Sound s : sounds) names.add(s.name());
+            if (q != null && !q.isBlank()) {
+                String needle = q.trim().toLowerCase(java.util.Locale.ROOT);
+                names.removeIf(n -> !n.toLowerCase(java.util.Locale.ROOT).contains(needle));
+            }
+        }
+        return names;
     }
 
     private void editAction(Player player, Session session, int index, Action action) {
@@ -678,6 +771,8 @@ public final class ActionsEditor {
             session.soundVolume = s.volume();
             session.soundPitch = s.pitch();
             session.soundPage = 0;
+            session.soundCategory = null;
+            session.soundQuery = "";
             openPlaySoundGui(player, session);
             return;
         }
@@ -786,22 +881,22 @@ public final class ActionsEditor {
         return s.replaceAll("§.", "");
     }
 
-    private static UUID parseMenuId(ItemStack item) {
+    private UUID parseMenuId(ItemStack item) {
         if (item == null) return null;
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return null;
-        String s = meta.getLocalizedName();
-        if (s == null || !s.startsWith("menu:")) return null;
+        String raw = meta.getPersistentDataContainer().get(menuPickIdKey, PersistentDataType.STRING);
+        if (raw == null || raw.isBlank()) return null;
         try {
-            return UUID.fromString(s.substring("menu:".length()));
+            return UUID.fromString(raw);
         } catch (Exception e) {
             return null;
         }
     }
 
-    private static void tagMenuId(ItemStack item, UUID id) {
+    private void tagMenuId(ItemStack item, UUID id) {
         ItemMeta meta = item.getItemMeta();
-        meta.setLocalizedName("menu:" + id);
+        meta.getPersistentDataContainer().set(menuPickIdKey, PersistentDataType.STRING, id.toString());
         item.setItemMeta(meta);
     }
 
@@ -824,6 +919,8 @@ public final class ActionsEditor {
         private float soundVolume = 1.0f;
         private float soundPitch = 1.0f;
         private int soundPage;
+        private SoundCategory soundCategory;
+        private String soundQuery;
 
         private Session(Kind kind, String key, UUID owner, HouseSlot slot, Map<String, ActionList> events, ActionList standalone, Consumer<ActionList> onSave, Runnable back) {
             this.kind = kind;

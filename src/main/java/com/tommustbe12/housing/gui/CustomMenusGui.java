@@ -147,6 +147,17 @@ public final class CustomMenusGui {
                 openEditor(player, s, m.id());
                 return;
             }
+            if (rawSlot == 51) {
+                CustomMenu m = menus.find(s.owner, s.slot, s.openMenuId);
+                if (m == null) return;
+                prompt(player, "New menu title (supports & colors, or 'cancel'):", msg -> {
+                    String t = org.bukkit.ChatColor.translateAlternateColorCodes('&', msg);
+                    m.setTitle(t);
+                    menus.save(s.owner, s.slot);
+                    openEditor(player, s, m.id());
+                });
+                return;
+            }
             if (rawSlot == 49) {
                 saveFromEditor(player, s);
                 openList(player, s);
@@ -243,8 +254,14 @@ public final class CustomMenusGui {
         inv.setItem(48, named(Material.IRON_DOOR, "§bToggle Rows", List.of("§7Now: §f" + m.rows())));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Save + return")));
         inv.setItem(50, named(Material.RED_CONCRETE, "§cDelete", List.of("§7Delete this menu")));
+        inv.setItem(51, named(Material.OAK_SIGN, "§bTitle", List.of("§7Current: §f" + stripColors(m.title()), "§7Click to change")));
         inv.setItem(53, named(Material.PAPER, "§fTip", List.of("§7Click a slot to edit actions", "§7Items placed here keep NBT/PDC")));
         player.openInventory(inv);
+    }
+
+    private static String stripColors(String s) {
+        if (s == null) return "";
+        return s.replaceAll("§.", "");
     }
 
     private void saveFromEditor(Player player, Session s) {

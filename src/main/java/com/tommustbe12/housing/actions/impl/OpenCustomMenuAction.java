@@ -37,7 +37,7 @@ public final class OpenCustomMenuAction implements Action {
         CustomMenu menu = menus.find(ctx.houseOwner(), ctx.houseSlot(), menuId);
         if (menu == null) return;
         InventoryHolder holder = new com.tommustbe12.housing.custommenus.gui.CustomMenuRuntimeHolder(ctx.houseOwner(), ctx.houseSlot(), menuId);
-        Inventory inv = Bukkit.createInventory(holder, menu.rows() * 9, "Menu: " + menu.name());
+        Inventory inv = Bukkit.createInventory(holder, menu.rows() * 9, menu.title());
         inv.setContents(menu.contents().clone());
         player.closeInventory();
         player.openInventory(inv);

@@ -19,6 +19,7 @@ public final class CustomMenu {
 
     private final UUID id;
     private String name;
+    private String title;
     private int rows; // 3 or 6
     private ItemStack[] contents; // size rows*9
     private final Map<Integer, SlotActions> slotActions = new HashMap<>();
@@ -33,6 +34,8 @@ public final class CustomMenu {
     public UUID id() { return id; }
     public String name() { return name; }
     public void setName(String name) { this.name = name; }
+    public String title() { return title == null || title.isBlank() ? ("Menu: " + name) : title; }
+    public void setTitle(String title) { this.title = title; }
     public int rows() { return rows; }
     public void setRows(int rows) {
         this.rows = rows;

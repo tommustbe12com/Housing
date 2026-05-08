@@ -39,8 +39,10 @@ public final class CustomMenusStorage {
                 ConfigurationSection m = sec.getConfigurationSection(idStr);
                 if (m == null) continue;
                 String name = m.getString("name", "Menu");
+                String title = m.getString("title", "");
                 int rows = m.getInt("rows", 3);
                 CustomMenu menu = new CustomMenu(id, name, rows);
+                if (title != null && !title.isBlank()) menu.setTitle(title);
                 ItemStack[] contents = new ItemStack[rows * 9];
                 ConfigurationSection c = m.getConfigurationSection("contents");
                 if (c != null) {
@@ -86,6 +88,7 @@ public final class CustomMenusStorage {
         for (CustomMenu menu : menus) {
             ConfigurationSection m = sec.createSection(menu.id().toString());
             m.set("name", menu.name());
+            m.set("title", menu.title());
             m.set("rows", menu.rows());
             ConfigurationSection c = m.createSection("contents");
             ItemStack[] contents = menu.contents();
