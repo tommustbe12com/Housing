@@ -1,6 +1,8 @@
 package com.tommustbe12.housing.gui;
 
 import com.tommustbe12.housing.chat.ChatPrompts;
+import com.tommustbe12.housing.groups.HouseGroupsService;
+import com.tommustbe12.housing.groups.HousePermission;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.houses.HouseSlot;
 import com.tommustbe12.housing.npcs.NpcBehavior;
@@ -28,16 +30,18 @@ public final class NpcsGui {
     private final HouseManager houses;
     private final NpcManager npcs;
     private final ActionsEditor actionsEditor;
+    private final HouseGroupsService groups;
 
     private final ConcurrentHashMap<UUID, UUID> equipSessionNpcId = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, UUID> editSessionNpcId = new ConcurrentHashMap<>();
 
-    public NpcsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, NpcManager npcs, ActionsEditor actionsEditor) {
+    public NpcsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, NpcManager npcs, ActionsEditor actionsEditor, HouseGroupsService groups) {
         this.plugin = plugin;
         this.prompts = prompts;
         this.houses = houses;
         this.npcs = npcs;
         this.actionsEditor = actionsEditor;
+        this.groups = groups;
     }
 
     public boolean isTitle(String title) {
@@ -46,10 +50,13 @@ public final class NpcsGui {
 
     public void open(Player player) {
         var info = houses.getHouseInfoByWorld(player.getWorld());
-        if (info == null || !info.owner().equals(player.getUniqueId())) {
-            player.sendMessage("§cNPCs can only be edited in your own house.");
+        if (info == null) return;
+        boolean isOwner = info.owner().equals(player.getUniqueId());
+        if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.USE_NPCS))) {
+            player.sendMessage("§cYou don't have permission to edit NPCs in this house.");
             return;
         }
+
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_LIST);
         fill(inv);
         int i = 0;
@@ -79,10 +86,15 @@ public final class NpcsGui {
     public void handleClick(Player player, String title, int rawSlot, ItemStack clicked, org.bukkit.event.inventory.ClickType clickType, Runnable backToSystems) {
         if (clicked == null || clicked.getType().isAir()) return;
         var info = houses.getHouseInfoByWorld(player.getWorld());
-        if (info == null || !info.owner().equals(player.getUniqueId())) return;
+        if (info == null) return;
+        boolean isOwner = info.owner().equals(player.getUniqueId());
+        if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.USE_NPCS))) return;
 
         if (TITLE_LIST.equals(title)) {
-            if (rawSlot == 53) { backToSystems.run(); return; }
+            if (rawSlot == 53) {
+                backToSystems.run();
+                return;
+            }
             if (rawSlot == 49) {
                 NpcData npc = npcs.createNpc(info.owner(), info.slot(), player.getWorld(), player.getLocation());
                 openNpcEditor(player, info.owner(), info.slot(), npc);
@@ -99,20 +111,27 @@ public final class NpcsGui {
 
         if (TITLE_EQUIP.equals(title)) {
             if (clicked.getType() == Material.ARROW) {
-                UUID npcId = equipSessionNpcId.get(player.getUniqueId());
-                if (npcId == null) { open(player); return; }
-                for (NpcData npc : npcs.getNpcs(info.owner(), info.slot(), player.getWorld())) {
-                    if (npc.id().equals(npcId)) { openNpcEditor(player, info.owner(), info.slot(), npc); return; }
-                }
-                open(player);
+                UUID npcId = equipSessionNpcId.remove(player.getUniqueId());
+                if (npcId == null) return;
+                NpcData npc = findNpcById(info.owner(), info.slot(), player, npcId);
+                if (npc == null) return;
+                openNpcEditor(player, info.owner(), info.slot(), npc);
+                return;
             }
             return;
         }
 
         if (title != null && title.startsWith(TITLE_EDIT_PREFIX)) {
             NpcData npc = findNpcBySession(info.owner(), info.slot(), player);
-            if (npc == null) return;
-            if (clicked.getType() == Material.ARROW) { open(player); return; }
+            if (npc == null) {
+                open(player);
+                return;
+            }
+
+            if (clicked.getType() == Material.ARROW) {
+                open(player);
+                return;
+            }
             if (clicked.getType() == Material.NAME_TAG) {
                 prompts.prompt(player, "Enter NPC name:", msg -> {
                     if (msg.equalsIgnoreCase("cancel")) return;
@@ -175,7 +194,6 @@ public final class NpcsGui {
         inv.setItem(6, named(Material.PAPER, "§7Hand", List.of("§8Put item below")));
         inv.setItem(7, named(Material.PAPER, "§7Offhand", List.of("§8Put item below")));
 
-        // editable slots
         inv.setItem(10, npc.helmet());
         inv.setItem(11, npc.chestplate());
         inv.setItem(12, npc.leggings());
@@ -191,12 +209,11 @@ public final class NpcsGui {
         UUID npcId = equipSessionNpcId.remove(player.getUniqueId());
         if (npcId == null) return;
         var info = houses.getHouseInfoByWorld(player.getWorld());
-        if (info == null || !info.owner().equals(player.getUniqueId())) return;
+        if (info == null) return;
+        boolean isOwner = info.owner().equals(player.getUniqueId());
+        if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.USE_NPCS))) return;
 
-        NpcData npc = null;
-        for (NpcData n : npcs.getNpcs(info.owner(), info.slot(), player.getWorld())) {
-            if (n.id().equals(npcId)) { npc = n; break; }
-        }
+        NpcData npc = findNpcById(info.owner(), info.slot(), player, npcId);
         if (npc == null) return;
 
         npc.setHelmet(inv.getItem(10));
@@ -212,6 +229,10 @@ public final class NpcsGui {
     private NpcData findNpcBySession(UUID owner, HouseSlot slot, Player player) {
         UUID npcId = editSessionNpcId.get(player.getUniqueId());
         if (npcId == null) return null;
+        return findNpcById(owner, slot, player, npcId);
+    }
+
+    private NpcData findNpcById(UUID owner, HouseSlot slot, Player player, UUID npcId) {
         for (NpcData npc : npcs.getNpcs(owner, slot, player.getWorld())) {
             if (npc.id().equals(npcId)) return npc;
         }

@@ -28,6 +28,7 @@ public final class HouseScoreboardService {
     private final Placeholders placeholders;
 
     private final Map<UUID, BukkitTask> tasks = new ConcurrentHashMap<>();
+    private final Map<UUID, Scoreboard> personalBoards = new ConcurrentHashMap<>();
 
     public HouseScoreboardService(Plugin plugin, HouseManager houses) {
         this.plugin = plugin;
@@ -39,6 +40,14 @@ public final class HouseScoreboardService {
 
     public void start(Player player, UUID owner, HouseSlot slot) {
         stop(player);
+
+        ScoreboardManager manager = Bukkit.getScoreboardManager();
+        if (manager != null) {
+            Scoreboard personal = manager.getNewScoreboard();
+            personalBoards.put(player.getUniqueId(), personal);
+            player.setScoreboard(personal);
+        }
+
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> apply(player, owner, slot), 1L, 20L);
         tasks.put(player.getUniqueId(), task);
     }
@@ -46,7 +55,9 @@ public final class HouseScoreboardService {
     public void stop(Player player) {
         BukkitTask task = tasks.remove(player.getUniqueId());
         if (task != null) task.cancel();
-        // leave scoreboard as-is; server may overwrite
+        personalBoards.remove(player.getUniqueId());
+        ScoreboardManager manager = Bukkit.getScoreboardManager();
+        if (manager != null) player.setScoreboard(manager.getNewScoreboard());
     }
 
     private void apply(Player player, UUID owner, HouseSlot slot) {
@@ -60,9 +71,11 @@ public final class HouseScoreboardService {
             return;
         }
 
-        ScoreboardManager manager = Bukkit.getScoreboardManager();
-        if (manager == null) return;
-        Scoreboard sb = manager.getNewScoreboard();
+        Scoreboard sb = personalBoards.get(player.getUniqueId());
+        if (sb == null) return;
+
+        Objective existing = sb.getObjective("housing");
+        if (existing != null) try { existing.unregister(); } catch (Exception ignored) {}
         Objective obj = sb.registerNewObjective("housing", "dummy", ChatColor.translateAlternateColorCodes('&', "&b&lHousing"));
         obj.setDisplaySlot(DisplaySlot.SIDEBAR);
 
@@ -79,7 +92,7 @@ public final class HouseScoreboardService {
             if (score <= 0) break;
         }
 
-        player.setScoreboard(sb);
+        // Don't overwrite the scoreboard reference; we updated the player's personal board in-place.
     }
 
     private static String unique(String base, Map<String, Integer> used) {
@@ -97,4 +110,3 @@ public final class HouseScoreboardService {
         return storage;
     }
 }
-

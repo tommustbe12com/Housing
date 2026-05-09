@@ -1,6 +1,8 @@
 package com.tommustbe12.housing.gui;
 
 import com.tommustbe12.housing.chat.ChatPrompts;
+import com.tommustbe12.housing.groups.HouseGroupsService;
+import com.tommustbe12.housing.groups.HousePermission;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.houses.HouseSlot;
 import com.tommustbe12.housing.inventorylayouts.InventoryLayout;
@@ -27,15 +29,17 @@ public final class InventoryLayoutsGui {
     private final ChatPrompts prompts;
     private final HouseManager houses;
     private final InventoryLayoutsService layouts;
+    private final HouseGroupsService groups;
 
     private final ConcurrentHashMap<UUID, UUID> editingLayoutId = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, Consumer<InventoryLayout>> pickCallbacks = new ConcurrentHashMap<>();
 
-    public InventoryLayoutsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, InventoryLayoutsService layouts) {
+    public InventoryLayoutsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, InventoryLayoutsService layouts, HouseGroupsService groups) {
         this.plugin = plugin;
         this.prompts = prompts;
         this.houses = houses;
         this.layouts = layouts;
+        this.groups = groups;
     }
 
     public boolean isTitle(String title) {
@@ -44,10 +48,13 @@ public final class InventoryLayoutsGui {
 
     public void open(Player player) {
         var info = houses.getHouseInfoByWorld(player.getWorld());
-        if (info == null || !info.owner().equals(player.getUniqueId())) {
-            player.sendMessage("§cInventory Layouts can only be edited in your own house.");
+        if (info == null) return;
+        boolean isOwner = info.owner().equals(player.getUniqueId());
+        if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.EDIT_INVENTORY_LAYOUTS))) {
+            player.sendMessage("§cYou don't have permission to edit inventory layouts in this house.");
             return;
         }
+
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_LIST);
         fill(inv);
         List<InventoryLayout> list = layouts.get(info.owner(), info.slot());
@@ -73,19 +80,38 @@ public final class InventoryLayoutsGui {
         inv.setItem(49, named(Material.BARRIER, "§cClear", List.of("§7Remove selected layout.")));
         inv.setItem(53, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
-        // back is handled by caller via HouseItemListener routing, but we need a way to trigger it:
-        // we store it indirectly by telling caller to re-open after ARROW; HouseItemListener already knows the back runnable.
     }
 
     public void handleClick(Player player, String title, int rawSlot, ItemStack clicked, org.bukkit.event.inventory.ClickType clickType, Runnable backToSystems, Runnable backToActionEditor) {
         if (clicked == null || clicked.getType().isAir()) return;
+
         if (TITLE_PICK.equals(title)) {
-            if (clicked.getType() == Material.ARROW) { backToActionEditor.run(); return; }
+            if (clicked.getType() == Material.ARROW) {
+                backToActionEditor.run();
+                return;
+            }
             Consumer<InventoryLayout> cb = pickCallbacks.remove(player.getUniqueId());
-            if (cb == null) { backToActionEditor.run(); return; }
+            if (cb == null) {
+                backToActionEditor.run();
+                return;
+            }
             var info = houses.getHouseInfoByWorld(player.getWorld());
-            if (info == null) { cb.accept(null); return; }
-            if (clicked.getType() == Material.BARRIER) { cb.accept(null); backToActionEditor.run(); return; }
+            if (info == null) {
+                cb.accept(null);
+                return;
+            }
+            boolean isOwner = info.owner().equals(player.getUniqueId());
+            if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.EDIT_INVENTORY_LAYOUTS))) {
+                cb.accept(null);
+                backToActionEditor.run();
+                return;
+            }
+
+            if (clicked.getType() == Material.BARRIER) {
+                cb.accept(null);
+                backToActionEditor.run();
+                return;
+            }
             int idx = rawSlot;
             List<InventoryLayout> list = layouts.get(info.owner(), info.slot());
             if (idx < 0 || idx >= list.size()) return;
@@ -95,10 +121,15 @@ public final class InventoryLayoutsGui {
         }
 
         var info = houses.getHouseInfoByWorld(player.getWorld());
-        if (info == null || !info.owner().equals(player.getUniqueId())) return;
+        if (info == null) return;
+        boolean isOwner = info.owner().equals(player.getUniqueId());
+        if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.EDIT_INVENTORY_LAYOUTS))) return;
 
         if (TITLE_LIST.equals(title)) {
-            if (clicked.getType() == Material.ARROW) { backToSystems.run(); return; }
+            if (clicked.getType() == Material.ARROW) {
+                backToSystems.run();
+                return;
+            }
             if (clicked.getType() == Material.ANVIL) {
                 prompts.prompt(player, "Enter layout name:", msg -> {
                     if (msg.equalsIgnoreCase("cancel")) return;
@@ -127,7 +158,10 @@ public final class InventoryLayoutsGui {
         }
 
         if (title != null && title.startsWith(TITLE_EDIT_PREFIX)) {
-            if (clicked.getType() == Material.ARROW) { open(player); return; }
+            if (clicked.getType() == Material.ARROW) {
+                open(player);
+                return;
+            }
             if (clicked.getType() == Material.NAME_TAG) {
                 InventoryLayout l = findEditing(player, info.owner(), info.slot());
                 if (l == null) return;
@@ -157,15 +191,12 @@ public final class InventoryLayoutsGui {
 
     public void handleEditorClose(Player player, Inventory inv) {
         if (!inv.getViewers().isEmpty()) return;
-        // no-op: saving is explicit with the save button
-        // but we keep the editingLayoutId until user saves/cancels
     }
 
     private void openEdit(Player player, UUID owner, HouseSlot slot, InventoryLayout layout) {
         editingLayoutId.put(player.getUniqueId(), layout.id());
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_EDIT_PREFIX + layout.name());
 
-        // Player inv (0-35)
         ItemStack[] contents = layout.contents();
         if (contents != null) {
             for (int i = 0; i < Math.min(36, contents.length); i++) {
@@ -173,11 +204,9 @@ public final class InventoryLayoutsGui {
             }
         }
 
-        // Separator row
         ItemStack pane = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 36; i <= 44; i++) inv.setItem(i, pane);
 
-        // Armor/offhand area
         inv.setItem(45, layout.helmet());
         inv.setItem(46, layout.chestplate());
         inv.setItem(47, layout.leggings());
@@ -197,7 +226,6 @@ public final class InventoryLayoutsGui {
 
         ItemStack[] contents = new ItemStack[36];
         for (int i = 0; i < 36; i++) contents[i] = inv.getItem(i);
-        // Never save nether star menu slot into layouts
         contents[8] = null;
         l.setContents(contents);
 
@@ -229,3 +257,4 @@ public final class InventoryLayoutsGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
+

@@ -5,6 +5,7 @@ import com.tommustbe12.housing.gui.*;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.houses.HouseSlot;
 import com.tommustbe12.housing.util.HousingItems;
+import com.tommustbe12.housing.groups.HouseGroupsService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -48,6 +49,7 @@ public final class HouseItemListener implements Listener {
     private final InventoryLayoutsGui inventoryLayoutsGui;
     private final NpcsGui npcsGui;
     private final CustomMenusGui customMenusGui;
+    private final HouseGroupsService groups;
 
     private final NamespacedKey hotOwnerKey;
     private final NamespacedKey hotSlotKey;
@@ -64,7 +66,8 @@ public final class HouseItemListener implements Listener {
             HouseSettingsGui houseSettingsGui,
             InventoryLayoutsGui inventoryLayoutsGui,
             CustomMenusGui customMenusGui,
-            NpcsGui npcsGui
+            NpcsGui npcsGui,
+            HouseGroupsService groups
     ) {
         this.plugin = plugin;
         this.debug = debug;
@@ -78,6 +81,7 @@ public final class HouseItemListener implements Listener {
         this.inventoryLayoutsGui = inventoryLayoutsGui;
         this.customMenusGui = customMenusGui;
         this.npcsGui = npcsGui;
+        this.groups = groups;
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
     }
@@ -227,8 +231,21 @@ public final class HouseItemListener implements Listener {
             }
             if (clicked.getType() == Material.REPEATER) {
                 var info = houses.getHouseInfoByWorld(player.getWorld());
-                if (info == null || !info.owner().equals(player.getUniqueId())) {
-                    player.sendMessage("§cSystems is only available in your own house.");
+                if (info == null) return;
+                boolean inOwn = info.owner().equals(player.getUniqueId());
+                boolean canSystems = false;
+                if (!inOwn && groups != null) {
+                    canSystems = groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_ACTIONS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_EVENT_ACTIONS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_SCOREBOARD)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_COMMANDS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_FUNCTIONS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_INVENTORY_LAYOUTS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_CUSTOM_MENUS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.USE_NPCS);
+                }
+                if (!inOwn && !canSystems) {
+                    player.sendMessage("§cYou don't have permission to open Systems in this house.");
                     return;
                 }
                 openSystemsMenu(player);
@@ -268,6 +285,10 @@ public final class HouseItemListener implements Listener {
             if (!houses.houseExists(player.getUniqueId(), slot)) {
                 houses.createIfMissing(player.getUniqueId(), slot);
             }
+            if (groups != null && groups.isBanned(player.getUniqueId(), slot, player.getUniqueId())) {
+                player.sendMessage("§cYou are banned from this house.");
+                return;
+            }
             houses.joinHouse(player, player.getUniqueId(), slot);
             player.closeInventory();
             return;
@@ -288,6 +309,10 @@ public final class HouseItemListener implements Listener {
                 UUID owner = UUID.fromString(ownerStr);
                 HouseSlot slot = HouseSlot.fromIndex(slotIdx);
                 if (slot == null) return;
+                if (groups != null && groups.isBanned(owner, slot, player.getUniqueId())) {
+                    player.sendMessage("§cYou are banned from this house.");
+                    return;
+                }
                 houses.joinHouse(player, owner, slot);
                 player.closeInventory();
             } catch (IllegalArgumentException ignored) {
@@ -298,18 +323,45 @@ public final class HouseItemListener implements Listener {
         // Systems menu
         if (TITLE_SYSTEMS.equals(title)) {
             if (clicked.getType() == Material.ARROW) { openMainMenu(player); return; }
+            var info = houses.getHouseInfoByWorld(player.getWorld());
+            boolean inOwn = info != null && info.owner().equals(player.getUniqueId());
             if (clicked.getType() == Material.REDSTONE) { openEventActionsMenu(player); return; }
             if (clicked.getType() == Material.OAK_SIGN) {
-                var info = houses.getHouseInfoByWorld(player.getWorld());
-                if (info == null || !info.owner().equals(player.getUniqueId())) return;
+                if (info == null) return;
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_SCOREBOARD))) return;
                 scoreboardEditorGui.open(player, info.owner(), info.slot());
                 return;
             }
-            if (clicked.getType() == Material.COMMAND_BLOCK) { commandsGui.open(player); return; }
-            if (clicked.getType() == Material.BOOK) { functionsGui.open(player); return; }
-            if (clicked.getType() == Material.CHEST) { inventoryLayoutsGui.open(player); return; }
-            if (clicked.getType() == Material.ARMOR_STAND) { npcsGui.open(player); return; }
-            if (clicked.getType() == Material.ITEM_FRAME && customMenusGui != null) { customMenusGui.open(player, () -> openSystemsMenu(player)); return; }
+            if (clicked.getType() == Material.COMMAND_BLOCK) {
+                if (info == null) return;
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_COMMANDS))) return;
+                commandsGui.open(player);
+                return;
+            }
+            if (clicked.getType() == Material.BOOK) {
+                if (info == null) return;
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_FUNCTIONS))) return;
+                functionsGui.open(player);
+                return;
+            }
+            if (clicked.getType() == Material.CHEST) {
+                if (info == null) return;
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_INVENTORY_LAYOUTS))) return;
+                inventoryLayoutsGui.open(player);
+                return;
+            }
+            if (clicked.getType() == Material.ARMOR_STAND) {
+                if (info == null) return;
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.USE_NPCS))) return;
+                npcsGui.open(player);
+                return;
+            }
+            if (clicked.getType() == Material.ITEM_FRAME && customMenusGui != null) {
+                if (info == null) return;
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_CUSTOM_MENUS))) return;
+                customMenusGui.open(player, () -> openSystemsMenu(player));
+                return;
+            }
             player.sendMessage("§7That system is coming soon.");
             return;
         }
@@ -318,7 +370,9 @@ public final class HouseItemListener implements Listener {
         if (TITLE_EVENT_ACTIONS.equals(title)) {
             if (clicked.getType() == Material.ARROW) { openSystemsMenu(player); return; }
             var info = houses.getHouseInfoByWorld(player.getWorld());
-            if (info == null || !info.owner().equals(player.getUniqueId())) return;
+            if (info == null) return;
+            boolean inOwn = info.owner().equals(player.getUniqueId());
+            if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_EVENT_ACTIONS))) return;
             String eventKey = switch (clicked.getType()) {
                 case LIME_DYE -> "player_join";
                 case GRAY_DYE -> "player_quit";
@@ -400,14 +454,27 @@ public final class HouseItemListener implements Listener {
         fill(inv);
         var info = houses.getHouseInfoByWorld(player.getWorld());
         boolean inOwn = info != null && info.owner().equals(player.getUniqueId());
+        boolean canSystems = false;
+        boolean canSettings = false;
+        if (info != null && groups != null) {
+            canSystems = groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_ACTIONS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_EVENT_ACTIONS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_SCOREBOARD)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_COMMANDS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_FUNCTIONS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_INVENTORY_LAYOUTS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_CUSTOM_MENUS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.USE_NPCS);
+            canSettings = groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.CHANGE_SETTINGS);
+        }
 
         if (info == null) {
             inv.setItem(11, named(Material.OAK_DOOR, "§aYour Houses", List.of("§7Create or join your houses.")));
             inv.setItem(13, named(Material.FIREWORK_STAR, "§6Hot Houses", List.of("§7Top houses by cookies.")));
             inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Close this menu.")));
-        } else if (inOwn) {
-            inv.setItem(11, named(Material.REPEATER, "§bSystems", List.of("§7Customize your house.")));
-            inv.setItem(13, named(Material.COMPARATOR, "§eSettings", List.of("§7Edit house settings.")));
+        } else if (inOwn || canSystems || canSettings) {
+            if (inOwn || canSystems) inv.setItem(11, named(Material.REPEATER, "§bSystems", List.of("§7Customize your house.")));
+            if (inOwn || canSettings) inv.setItem(13, named(Material.COMPARATOR, "§eSettings", List.of("§7Edit house settings.")));
             inv.setItem(18, named(Material.ARROW, "§7Back", List.of("§7Close this menu.")));
             inv.setItem(26, named(Material.OAK_DOOR, "§cBack to Hub", List.of("§7Teleport back to the hub.")));
         } else {

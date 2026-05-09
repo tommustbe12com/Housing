@@ -8,6 +8,8 @@ import com.tommustbe12.housing.actions.storage.SimpleActionSerializer;
 import com.tommustbe12.housing.chat.ChatPrompts;
 import com.tommustbe12.housing.commands.HouseCommandsStorage;
 import com.tommustbe12.housing.debug.Debug;
+import com.tommustbe12.housing.groups.HouseGroupsService;
+import com.tommustbe12.housing.groups.HousePermission;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.houses.HouseSlot;
 import org.bukkit.Bukkit;
@@ -30,18 +32,20 @@ public final class CommandsGui {
     private final ChatPrompts prompts;
     private final ActionsEditor actionsEditor;
     private final HouseManager houses;
+    private final HouseGroupsService groups;
     private final HouseCommandsStorage storage;
     private final SimpleActionSerializer serializer = new SimpleActionSerializer();
     private final SimpleActionCodec codec;
 
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
 
-    public CommandsGui(Plugin plugin, Debug debug, ChatPrompts prompts, ActionsEditor actionsEditor, HouseManager houses) {
+    public CommandsGui(Plugin plugin, Debug debug, ChatPrompts prompts, ActionsEditor actionsEditor, HouseManager houses, HouseGroupsService groups) {
         this.plugin = plugin;
         this.debug = debug;
         this.prompts = prompts;
         this.actionsEditor = actionsEditor;
         this.houses = houses;
+        this.groups = groups;
         this.storage = new HouseCommandsStorage(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         Placeholders ph = new Placeholders(vars);
@@ -56,10 +60,17 @@ public final class CommandsGui {
 
     public void open(Player player) {
         var info = houses.getHouseInfoByWorld(player.getWorld());
-        if (info == null || !info.owner().equals(player.getUniqueId())) {
-            player.sendMessage("§cYou can only edit commands inside your own house.");
+        if (info == null) {
+            player.sendMessage("§cYou can only edit commands inside a house.");
             return;
         }
+
+        boolean inOwn = info.owner().equals(player.getUniqueId());
+        if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.EDIT_COMMANDS))) {
+            player.sendMessage("§cYou don't have permission to edit commands in this house.");
+            return;
+        }
+
         Session session = new Session(info.owner(), info.slot());
         sessions.put(player.getUniqueId(), session);
         session.commands.clear();
@@ -202,3 +213,4 @@ public final class CommandsGui {
         }
     }
 }
+

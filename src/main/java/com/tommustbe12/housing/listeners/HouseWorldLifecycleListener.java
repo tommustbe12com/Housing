@@ -5,6 +5,7 @@ import com.tommustbe12.housing.actions.HouseActionsService;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.inventory.InventoryService;
 import com.tommustbe12.housing.tags.OwnerTagService;
+import com.tommustbe12.housing.groups.HouseGroupsService;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
@@ -21,8 +22,9 @@ public final class HouseWorldLifecycleListener implements Listener {
     private final InventoryService inventories;
     private final HouseActionsService actions;
     private final com.tommustbe12.housing.scoreboard.HouseScoreboardService scoreboards;
+    private final HouseGroupsService groups;
 
-    public HouseWorldLifecycleListener(Plugin plugin, Debug debug, HouseManager houses, OwnerTagService ownerTags, InventoryService inventories, HouseActionsService actions, com.tommustbe12.housing.scoreboard.HouseScoreboardService scoreboards) {
+    public HouseWorldLifecycleListener(Plugin plugin, Debug debug, HouseManager houses, OwnerTagService ownerTags, InventoryService inventories, HouseActionsService actions, com.tommustbe12.housing.scoreboard.HouseScoreboardService scoreboards, HouseGroupsService groups) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
@@ -30,6 +32,7 @@ public final class HouseWorldLifecycleListener implements Listener {
         this.inventories = inventories;
         this.actions = actions;
         this.scoreboards = scoreboards;
+        this.groups = groups;
     }
 
     @EventHandler
@@ -47,14 +50,25 @@ public final class HouseWorldLifecycleListener implements Listener {
 
         // Entering a house world -> snapshot hub inv, apply house inv, apply tags
         if (toInfo != null) {
+            // Enable/disable flight based on group permission (owner always allowed by groups.has()).
+            boolean canFly = groups == null || groups.has(toInfo.owner(), toInfo.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.FLY);
+            player.setAllowFlight(canFly);
+            if (groups != null && groups.isBanned(toInfo.owner(), toInfo.slot(), player.getUniqueId())) {
+                houses.sendToHub(player);
+                player.sendMessage("§cYou are banned from that house.");
+                return;
+            }
             inventories.applyHouseInventoryOrDefault(player, toInfo.owner(), toInfo.slot());
             houses.applyOwnerState(player, toInfo.owner());
-            ownerTags.applyOwner(player, toInfo.owner());
+            if (groups != null) groups.applyDefaultModeIfNeeded(player);
             scoreboards.start(player, toInfo.owner(), toInfo.slot());
+            // Apply tag after scoreboard start so it applies to the player's current scoreboard.
+            String tag = groups == null ? "" : groups.tagForDisplay(toInfo.owner(), toInfo.slot(), player.getUniqueId());
+            ownerTags.applyTag(player, tag);
             actions.runEvent(toInfo.owner(), toInfo.slot(), player.getWorld(), player, "player_join");
         } else {
-            ownerTags.clear(player);
             scoreboards.stop(player);
+            ownerTags.clear(player);
         }
     }
 

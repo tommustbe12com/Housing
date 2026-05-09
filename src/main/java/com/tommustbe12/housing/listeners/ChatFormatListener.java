@@ -1,6 +1,7 @@
 package com.tommustbe12.housing.listeners;
 
 import com.tommustbe12.housing.houses.HouseManager;
+import com.tommustbe12.housing.groups.HouseGroupsService;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
@@ -11,10 +12,12 @@ import org.bukkit.plugin.Plugin;
 public final class ChatFormatListener implements Listener {
     private final Plugin plugin;
     private final HouseManager houses;
+    private final HouseGroupsService groups;
 
-    public ChatFormatListener(Plugin plugin, HouseManager houses) {
+    public ChatFormatListener(Plugin plugin, HouseManager houses, HouseGroupsService groups) {
         this.plugin = plugin;
         this.houses = houses;
+        this.groups = groups;
     }
 
     @EventHandler
@@ -27,19 +30,22 @@ public final class ChatFormatListener implements Listener {
             World hub = resolveHubWorld();
             if (hub == null) return;
             event.getRecipients().removeIf(p -> p.getWorld() != hub);
-            event.setFormat("Â§7[HUB] Â§f" + player.getName() + "Â§7: Â§f" + event.getMessage());
+            // Hub chat: keep it clean but consistent.
+            event.setFormat("§f" + player.getName() + "§7: §f" + event.getMessage());
             return;
         }
 
         // House chat is scoped to the world for that house only.
         event.getRecipients().removeIf(p -> p.getWorld() != player.getWorld());
 
-        boolean isOwner = player.getUniqueId().equals(info.owner());
-        if (isOwner) {
-            event.setFormat("Â§6[OWNER] Â§f" + player.getName() + "Â§7: Â§f" + event.getMessage());
-        } else {
-            event.setFormat("Â§f" + player.getName() + "Â§7: Â§f" + event.getMessage());
+        if (groups.isMuted(info.owner(), info.slot(), player.getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage("§cYou are muted in this house.");
+            return;
         }
+
+        String tag = groups.tagForDisplay(info.owner(), info.slot(), player.getUniqueId());
+        event.setFormat(tag + " §f" + player.getName() + "§7: §f" + event.getMessage());
     }
 
     private World resolveHubWorld() {
@@ -49,4 +55,3 @@ public final class ChatFormatListener implements Listener {
         return hub != null ? hub : Bukkit.getWorlds().getFirst();
     }
 }
-

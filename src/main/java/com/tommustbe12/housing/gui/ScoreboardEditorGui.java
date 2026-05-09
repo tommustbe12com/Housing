@@ -1,6 +1,8 @@
 package com.tommustbe12.housing.gui;
 
 import com.tommustbe12.housing.chat.ChatPrompts;
+import com.tommustbe12.housing.groups.HouseGroupsService;
+import com.tommustbe12.housing.groups.HousePermission;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.houses.HouseSlot;
 import com.tommustbe12.housing.scoreboard.HouseScoreboardService;
@@ -24,12 +26,14 @@ public final class ScoreboardEditorGui {
     private final ChatPrompts prompts;
     private final HouseManager houses;
     private final HouseScoreboardService scoreboards;
+    private final HouseGroupsService groups;
 
-    public ScoreboardEditorGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, HouseScoreboardService scoreboards) {
+    public ScoreboardEditorGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, HouseScoreboardService scoreboards, HouseGroupsService groups) {
         this.plugin = plugin;
         this.prompts = prompts;
         this.houses = houses;
         this.scoreboards = scoreboards;
+        this.groups = groups;
     }
 
     public boolean isTitle(String title) {
@@ -50,7 +54,10 @@ public final class ScoreboardEditorGui {
 
     public void handleClick(Player player, int rawSlot, ItemStack clicked, Runnable back) {
         var info = houses.getHouseInfoByWorld(player.getWorld());
-        if (info == null || !info.owner().equals(player.getUniqueId())) return;
+        if (info == null) return;
+        boolean isOwner = info.owner().equals(player.getUniqueId());
+        if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.EDIT_SCOREBOARD))) return;
+
         UUID owner = info.owner();
         HouseSlot slot = info.slot();
         List<String> lines = new ArrayList<>(scoreboards.storage().load(owner, slot));
