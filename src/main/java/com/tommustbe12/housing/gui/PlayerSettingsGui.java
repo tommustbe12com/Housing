@@ -5,6 +5,7 @@ import com.tommustbe12.housing.groups.HouseGroup;
 import com.tommustbe12.housing.groups.HouseGroupsData;
 import com.tommustbe12.housing.groups.HouseGroupsService;
 import com.tommustbe12.housing.houses.HouseManager;
+import com.tommustbe12.housing.tags.OwnerTagService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -24,14 +25,16 @@ public final class PlayerSettingsGui {
     private final ChatPrompts prompts;
     private final HouseManager houses;
     private final HouseGroupsService groups;
+    private final OwnerTagService tags;
 
     private final Map<UUID, UUID> targetByViewer = new ConcurrentHashMap<>();
 
-    public PlayerSettingsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, HouseGroupsService groups) {
+    public PlayerSettingsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, HouseGroupsService groups, OwnerTagService tags) {
         this.plugin = plugin;
         this.prompts = prompts;
         this.houses = houses;
         this.groups = groups;
+        this.tags = tags;
     }
 
     public boolean isTitle(String title) {
@@ -100,6 +103,14 @@ public final class PlayerSettingsGui {
             }
             groups.setGroup(info.owner(), info.slot(), targetId, gid);
             viewer.sendMessage("§aUpdated group.");
+            if (target != null) {
+                String tag = groups.tagForDisplay(info.owner(), info.slot(), target.getUniqueId());
+                tags.applyTag(target, tag);
+                groups.applyDefaultModeIfNeeded(target);
+                boolean canFly = groups.has(info.owner(), info.slot(), target.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.FLY);
+                target.setAllowFlight(canFly);
+                if (!canFly) target.setFlying(false);
+            }
             open(viewer, target != null ? target : viewer, back);
             return;
         }
@@ -159,4 +170,3 @@ public final class PlayerSettingsGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-

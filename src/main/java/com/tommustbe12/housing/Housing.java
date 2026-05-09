@@ -91,7 +91,7 @@ public final class Housing extends JavaPlugin {
         this.commandsGui = new CommandsGui(this, debug, chatPrompts, actionsEditor, houseManager, groupsService);
         this.groupsGui = new GroupsGui(this, chatPrompts, houseManager, groupsService);
         this.houseSettingsGui = new HouseSettingsGui(this, chatPrompts, houseManager, groupsGui, groupsService);
-        this.playerSettingsGui = new PlayerSettingsGui(this, chatPrompts, houseManager, groupsService);
+        this.playerSettingsGui = new PlayerSettingsGui(this, chatPrompts, houseManager, groupsService, ownerTagService);
         this.inventoryLayoutsGui = new InventoryLayoutsGui(this, chatPrompts, houseManager, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(this), groupsService);
         this.itemEditGui = new ItemEditGui(this, debug, chatPrompts, actionsEditor, houseManager);
         this.functionsGui = new FunctionsGui(this, debug, chatPrompts, actionsEditor, houseManager, groupsService);

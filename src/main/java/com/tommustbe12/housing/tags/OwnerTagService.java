@@ -25,6 +25,7 @@ public final class OwnerTagService {
 
     private final ConcurrentHashMap<UUID, Original> originals = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, String> playerTeam = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> viewerTargetTeam = new ConcurrentHashMap<>();
 
     public OwnerTagService(Plugin plugin, Debug debug) {
         this.plugin = plugin;
@@ -43,20 +44,37 @@ public final class OwnerTagService {
 
         originals.putIfAbsent(player.getUniqueId(), new Original(player.getPlayerListName(), player.getDisplayName()));
 
-        Scoreboard scoreboard = player.getScoreboard();
-        if (scoreboard == null) return;
+        // Update tab+display for the player themselves.
+        player.setPlayerListName((tag.isBlank() ? "" : (tag + " §f")) + player.getName());
+        player.setDisplayName((tag.isBlank() ? "" : (tag + " §f")) + player.getName());
 
-        // Remove from previous team if needed
-        String prevTeam = playerTeam.remove(player.getUniqueId());
+        // Apply nametag prefixes for *all viewers in the same world* (viewer scoreboards drive nametag rendering).
+        for (Player viewer : player.getWorld().getPlayers()) {
+            setViewerTag(viewer, player, tag);
+        }
+    }
+
+    public void clear(Player player) {
+        for (Player viewer : player.getWorld().getPlayers()) {
+            setViewerTag(viewer, player, "");
+        }
+        originals.remove(player.getUniqueId());
+        player.setPlayerListName(player.getName());
+        player.setDisplayName(player.getName());
+    }
+
+    private void setViewerTag(Player viewer, Player target, String tag) {
+        Scoreboard scoreboard = viewer.getScoreboard();
+        if (scoreboard == null) return;
+        String key = viewer.getUniqueId() + ":" + target.getUniqueId();
+
+        String prevTeam = viewerTargetTeam.remove(key);
         if (prevTeam != null) {
             Team t = scoreboard.getTeam(prevTeam);
-            if (t != null && t.hasEntry(player.getName())) t.removeEntry(player.getName());
+            if (t != null && t.hasEntry(target.getName())) t.removeEntry(target.getName());
         }
 
-        if (tag.isBlank()) {
-            clear(player);
-            return;
-        }
+        if (tag == null || tag.isBlank()) return;
 
         String teamName = teamNameForTag(tag);
         Team team = scoreboard.getTeam(teamName);
@@ -67,25 +85,8 @@ public final class OwnerTagService {
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
         team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.ALWAYS);
 
-        if (!team.hasEntry(player.getName())) team.addEntry(player.getName());
-        playerTeam.put(player.getUniqueId(), teamName);
-
-        player.setPlayerListName(team.getPrefix() + player.getName());
-        player.setDisplayName(team.getPrefix() + player.getName());
-    }
-
-    public void clear(Player player) {
-        Scoreboard scoreboard = player.getScoreboard();
-        if (scoreboard != null) {
-            String prevTeam = playerTeam.remove(player.getUniqueId());
-            if (prevTeam != null) {
-                Team t = scoreboard.getTeam(prevTeam);
-                if (t != null && t.hasEntry(player.getName())) t.removeEntry(player.getName());
-            }
-        }
-        originals.remove(player.getUniqueId());
-        player.setPlayerListName(player.getName());
-        player.setDisplayName(player.getName());
+        if (!team.hasEntry(target.getName())) team.addEntry(target.getName());
+        viewerTargetTeam.put(key, teamName);
     }
 
     private static String teamNameForTag(String tag) {
@@ -98,4 +99,3 @@ public final class OwnerTagService {
 
     private record Original(String playerListName, String displayName) {}
 }
-
