@@ -11,10 +11,12 @@ import java.util.UUID;
 public final class VariablesStore {
     private final Plugin plugin;
     private final File varsDir;
+    private final int maxCharsPerHouse;
 
     public VariablesStore(Plugin plugin) {
         this.plugin = plugin;
         this.varsDir = new File(plugin.getDataFolder(), "variables");
+        this.maxCharsPerHouse = plugin.getConfig().getInt("stats.max-chars-per-house", 65536);
         if (!varsDir.exists()) {
             //noinspection ResultOfMethodCallIgnored
             varsDir.mkdirs();
@@ -34,6 +36,14 @@ public final class VariablesStore {
         File file = fileFor(houseOwner, slot);
         YamlConfiguration yaml = file.exists() ? YamlConfiguration.loadConfiguration(file) : new YamlConfiguration();
         yaml.set(path(player, key), value);
+
+        // Guardrail: limit total stored data per house so stats can't be abused for infinite storage.
+        // Uses YAML string size as a simple approximation.
+        if (yaml.saveToString().length() > maxCharsPerHouse) {
+            // revert the change
+            yaml.set(path(player, key), null);
+            return;
+        }
         try {
             yaml.save(file);
         } catch (IOException e) {

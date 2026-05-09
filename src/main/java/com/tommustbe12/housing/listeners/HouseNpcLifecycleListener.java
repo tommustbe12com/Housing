@@ -22,10 +22,5 @@ public final class HouseNpcLifecycleListener implements Listener {
         if (info != null) {
             npcs.spawnAll(info.owner(), info.slot(), to);
         }
-        var fromInfo = houses.getHouseInfoByWorld(event.getFrom());
-        if (fromInfo != null) {
-            npcs.despawnAll(event.getFrom());
-        }
     }
 }
-

@@ -37,8 +37,15 @@ public final class CustomMenusGuiListener implements Listener {
             event.setCancelled(true);
         }
 
+        // Only treat editor slot right-click as "edit actions" (left click should behave like normal inventory editing).
+        if (title != null && title.startsWith("Edit Menu: ")) {
+            int topSize = event.getView().getTopInventory().getSize();
+            if (raw >= 0 && raw < 45 && raw < topSize && !event.getClick().isRightClick()) {
+                return;
+            }
+        }
+
         ItemStack clicked = event.getCurrentItem();
-        if (clicked == null || clicked.getType().isAir()) return;
         gui.handleClick(player, title, raw, clicked, event.getClick());
     }
 

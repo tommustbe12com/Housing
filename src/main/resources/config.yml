@@ -8,6 +8,15 @@ hub:
 houses:
   plot-size: 256
   deactivate-seconds: 10
+  world-border:
+    size: 256
+    min-y: 0
+    max-y: 255
   starter-platform:
     size: 8
     y: 64
+
+stats:
+  # Guardrail so %stat.% / %stats.% can't be abused as infinite storage.
+  # Total YAML character count across the whole house file; 65536 ~= 64 KB.
+  max-chars-per-house: 65536

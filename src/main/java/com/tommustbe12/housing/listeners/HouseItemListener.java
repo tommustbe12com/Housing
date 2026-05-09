@@ -63,8 +63,8 @@ public final class HouseItemListener implements Listener {
             CommandsGui commandsGui,
             HouseSettingsGui houseSettingsGui,
             InventoryLayoutsGui inventoryLayoutsGui,
-            NpcsGui npcsGui,
-            CustomMenusGui customMenusGui
+            CustomMenusGui customMenusGui,
+            NpcsGui npcsGui
     ) {
         this.plugin = plugin;
         this.debug = debug;
@@ -76,8 +76,8 @@ public final class HouseItemListener implements Listener {
         this.commandsGui = commandsGui;
         this.houseSettingsGui = houseSettingsGui;
         this.inventoryLayoutsGui = inventoryLayoutsGui;
-        this.npcsGui = npcsGui;
         this.customMenusGui = customMenusGui;
+        this.npcsGui = npcsGui;
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
     }

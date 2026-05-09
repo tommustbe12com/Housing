@@ -32,6 +32,8 @@ import com.tommustbe12.housing.listeners.HouseEventActionsListener;
 import com.tommustbe12.housing.listeners.PlayerJoinListener;
 import com.tommustbe12.housing.listeners.PlayerQuitListener;
 import com.tommustbe12.housing.listeners.HouseWorldLifecycleListener;
+import com.tommustbe12.housing.listeners.HouseVisibilityListener;
+import com.tommustbe12.housing.listeners.HouseVerticalBorderListener;
 import com.tommustbe12.housing.tags.OwnerTagService;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -80,12 +82,14 @@ public final class Housing extends JavaPlugin {
         this.itemEditGui = new ItemEditGui(this, debug, chatPrompts, actionsEditor, houseManager);
         this.functionsGui = new FunctionsGui(this, debug, chatPrompts, actionsEditor, houseManager);
         this.customMenusService = new com.tommustbe12.housing.custommenus.CustomMenusService(this, houseManager);
-        this.customMenusGui = new CustomMenusGui(this, chatPrompts, actionsEditor, houseManager, customMenusService);
+        this.customMenusGui = new CustomMenusGui(this, chatPrompts, houseManager, customMenusService, actionsEditor);
         this.npcManager = new NpcManager(this, debug, houseManager);
         this.npcManager.start();
+        // NPCs should only despawn when a house is deactivated (after inactivity timer) or deleted.
+        this.houseManager.setOnHouseDeactivated(world -> npcManager.despawnAll(world));
         this.npcsGui = new NpcsGui(this, chatPrompts, houseManager, npcManager, actionsEditor);
 
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, npcsGui, customMenusGui);
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, customMenusGui, npcsGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
         this.cookieService = new CookieService(this, debug, houseManager);
         this.cookieItemListener = new CookieItemListener(this, houseManager, cookieService);
@@ -94,7 +98,9 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(debug, houseItemListener, houseManager, ownerTagService, npcManager), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(debug), this);
         getServer().getPluginManager().registerEvents(new HouseWorldLifecycleListener(this, debug, houseManager, ownerTagService, inventoryService, actionsService, scoreboardService), this);
-        getServer().getPluginManager().registerEvents(new ChatFormatListener(houseManager), this);
+        getServer().getPluginManager().registerEvents(new ChatFormatListener(this, houseManager), this);
+        getServer().getPluginManager().registerEvents(new HouseVisibilityListener(this, houseManager), this);
+        getServer().getPluginManager().registerEvents(new HouseVerticalBorderListener(this, houseManager), this);
         getServer().getPluginManager().registerEvents(new ChatPromptListener(chatPrompts), this);
         getServer().getPluginManager().registerEvents(new ItemEditGuiListener(itemEditGui), this);
         getServer().getPluginManager().registerEvents(new ItemActionListener(this, debug, houseManager, itemEditGui), this);
@@ -109,6 +115,8 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HouseCommandSuggestionsListener(this, houseManager), this);
         getServer().getPluginManager().registerEvents(new HouseRespawnListener(this, houseManager, actionsService, inventoryService), this);
         getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.NetherStarLockListener(this), this);
+        getServer().getPluginManager().registerEvents(new CustomMenusGuiListener(customMenusGui), this);
+        getServer().getPluginManager().registerEvents(new CustomMenuRuntimeListener(this, debug, customMenusService), this);
 
         // 24/7 ensure players always have the Housing nether star in slot 9 (index 8)
         getServer().getScheduler().runTaskTimer(this, () -> {

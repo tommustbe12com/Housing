@@ -10,8 +10,10 @@ import org.bukkit.permissions.PermissionAttachment;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public final class HouseManager {
     private final Plugin plugin;
@@ -22,11 +24,16 @@ public final class HouseManager {
     private final Map<String, BukkitTask> deactivateTasks = new ConcurrentHashMap<>();
     private final Map<String, String> worldToHouseId = new ConcurrentHashMap<>();
     private final Map<UUID, PermissionAttachment> ownerAttachments = new ConcurrentHashMap<>();
+    private volatile Consumer<World> onHouseDeactivated;
 
     public HouseManager(Plugin plugin, Debug debug) {
         this.plugin = plugin;
         this.debug = debug;
         this.storage = new HouseStorage(plugin);
+    }
+
+    public void setOnHouseDeactivated(Consumer<World> onHouseDeactivated) {
+        this.onHouseDeactivated = onHouseDeactivated;
     }
 
     public HouseData getHouse(UUID owner, HouseSlot slot) {
@@ -65,6 +72,7 @@ public final class HouseManager {
         world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
         world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
         world.setDifficulty(Difficulty.NORMAL);
+        applyWorldBorder(world);
 
         ensureStarterPlatform(world);
 
@@ -161,10 +169,33 @@ public final class HouseManager {
     public void deleteHouse(UUID owner, HouseSlot slot) {
         String id = id(owner, slot);
         ActiveHouse house = active.remove(id);
+        String worldName = worldName(owner, slot);
+        if (house != null) worldName = house.world().getName();
+
+        World world = Bukkit.getWorld(worldName);
+        if (world != null) {
+            for (Player player : List.copyOf(world.getPlayers())) {
+                sendToHub(player);
+            }
+        }
+
         if (house != null) {
             worldToHouseId.remove(house.world().getName());
-            Bukkit.unloadWorld(house.world(), true);
         }
+
+        if (world != null) {
+            Consumer<World> cb = onHouseDeactivated;
+            if (cb != null) {
+                try {
+                    cb.accept(world);
+                } catch (Exception ignored) {
+                }
+            }
+            Bukkit.unloadWorld(world, true);
+        }
+
+        // Ensure the world folder is deleted so recreating the house is truly fresh.
+        deleteWorldFolder(worldName);
         storage.delete(owner, slot);
     }
 
@@ -216,6 +247,13 @@ public final class HouseManager {
         cancelDeactivate(id);
         worldToHouseId.remove(worldName);
         active.remove(id);
+        Consumer<World> cb = onHouseDeactivated;
+        if (cb != null) {
+            try {
+                cb.accept(world);
+            } catch (Exception ignored) {
+            }
+        }
         Bukkit.unloadWorld(world, true);
     }
 
@@ -262,6 +300,51 @@ public final class HouseManager {
         World world = creator.createWorld();
         if (world == null) throw new IllegalStateException("Failed to create world: " + name);
         return world;
+    }
+
+    private void applyWorldBorder(World world) {
+        // Size is full width (diameter). A 256 border gives -128..+128-ish playable area around center.
+        double size = plugin.getConfig().getDouble("houses.world-border.size", 256.0);
+        if (size <= 0) size = 256.0;
+        world.getWorldBorder().setCenter(0.0, 0.0);
+        world.getWorldBorder().setSize(size);
+    }
+
+    private void deleteWorldFolder(String worldName) {
+        if (worldName == null || worldName.isBlank()) return;
+        File container = Bukkit.getWorldContainer();
+        if (container == null) return;
+        File folder = new File(container, worldName);
+        if (!folder.exists()) return;
+        if (!isInside(container, folder)) {
+            debug.warn("Refusing to delete world folder outside world container: " + folder.getPath());
+            return;
+        }
+        deleteDir(folder);
+    }
+
+    private static boolean isInside(File parent, File child) {
+        try {
+            String p = parent.getCanonicalPath();
+            String c = child.getCanonicalPath();
+            return c.startsWith(p + File.separator);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static void deleteDir(File dir) {
+        if (dir == null || !dir.exists()) return;
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File f : files) {
+                if (f.isDirectory()) deleteDir(f);
+                //noinspection ResultOfMethodCallIgnored
+                f.delete();
+            }
+        }
+        //noinspection ResultOfMethodCallIgnored
+        dir.delete();
     }
 
     private void ensureStarterPlatform(World world) {

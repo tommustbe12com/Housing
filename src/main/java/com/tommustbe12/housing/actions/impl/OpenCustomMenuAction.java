@@ -4,10 +4,10 @@ import com.tommustbe12.housing.actions.Action;
 import com.tommustbe12.housing.actions.ActionContext;
 import com.tommustbe12.housing.custommenus.CustomMenu;
 import com.tommustbe12.housing.custommenus.CustomMenusService;
+import com.tommustbe12.housing.custommenus.gui.CustomMenuRuntimeHolder;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 
 import java.util.UUID;
 
@@ -36,7 +36,7 @@ public final class OpenCustomMenuAction implements Action {
         if (player == null || menuId == null) return;
         CustomMenu menu = menus.find(ctx.houseOwner(), ctx.houseSlot(), menuId);
         if (menu == null) return;
-        InventoryHolder holder = new com.tommustbe12.housing.custommenus.gui.CustomMenuRuntimeHolder(ctx.houseOwner(), ctx.houseSlot(), menuId);
+        CustomMenuRuntimeHolder holder = new CustomMenuRuntimeHolder(ctx.houseOwner(), ctx.houseSlot(), menu.id());
         Inventory inv = Bukkit.createInventory(holder, menu.rows() * 9, menu.title());
         inv.setContents(menu.contents().clone());
         player.closeInventory();
