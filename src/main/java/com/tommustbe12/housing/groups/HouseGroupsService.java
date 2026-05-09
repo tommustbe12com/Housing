@@ -103,6 +103,8 @@ public final class HouseGroupsService {
         if (!has(owner, slot, actor.getUniqueId(), HousePermission.CHANGE_GROUP)) return false;
 
         HouseGroupsData data = groups(owner, slot);
+        // Owner group is reserved for the actual house owner and cannot be assigned.
+        if (targetGroupId != null && targetGroupId.equals(data.ownerId())) return false;
         HouseGroup actorGroup = groupFor(owner, slot, actor.getUniqueId());
         HouseGroup target = data.get(targetGroupId);
         if (actorGroup == null || target == null) return false;

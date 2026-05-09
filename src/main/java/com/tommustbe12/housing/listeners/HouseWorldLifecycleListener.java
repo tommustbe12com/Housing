@@ -62,13 +62,20 @@ public final class HouseWorldLifecycleListener implements Listener {
             houses.applyOwnerState(player, toInfo.owner());
             if (groups != null) groups.applyDefaultModeIfNeeded(player);
             scoreboards.start(player, toInfo.owner(), toInfo.slot());
-            // Apply tag after scoreboard start so it applies to the player's current scoreboard.
-            String tag = groups == null ? "" : groups.tagForDisplay(toInfo.owner(), toInfo.slot(), player.getUniqueId());
-            ownerTags.applyTag(player, tag);
+            // Apply all tags after scoreboard start so the joining player's viewer scoreboard is populated too.
+            refreshWorldTags(player.getWorld(), toInfo.owner(), toInfo.slot());
             actions.runEvent(toInfo.owner(), toInfo.slot(), player.getWorld(), player, "player_join");
         } else {
             scoreboards.stop(player);
             ownerTags.clear(player);
+        }
+    }
+
+    private void refreshWorldTags(World world, UUID owner, com.tommustbe12.housing.houses.HouseSlot slot) {
+        if (world == null) return;
+        for (var p : world.getPlayers()) {
+            String tag = groups == null ? "" : groups.tagForDisplay(owner, slot, p.getUniqueId());
+            ownerTags.applyTag(p, tag);
         }
     }
 

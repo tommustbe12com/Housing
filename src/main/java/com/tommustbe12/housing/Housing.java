@@ -40,6 +40,8 @@ import com.tommustbe12.housing.listeners.HouseCommandPermissionListener;
 import com.tommustbe12.housing.listeners.PlayerSettingsPunchListener;
 import com.tommustbe12.housing.listeners.GroupsGuiListener;
 import com.tommustbe12.housing.listeners.PlayerSettingsGuiListener;
+import com.tommustbe12.housing.gui.BannedPlayersGui;
+import com.tommustbe12.housing.listeners.BannedPlayersGuiListener;
 import com.tommustbe12.housing.tags.OwnerTagService;
 import com.tommustbe12.housing.groups.HouseGroupsService;
 import com.tommustbe12.housing.gui.PlayerSettingsGui;
@@ -71,6 +73,7 @@ public final class Housing extends JavaPlugin {
     private CustomMenusGui customMenusGui;
     private HouseGroupsService groupsService;
     private PlayerSettingsGui playerSettingsGui;
+    private BannedPlayersGui bannedPlayersGui;
 
     @Override
     public void onEnable() {
@@ -102,6 +105,7 @@ public final class Housing extends JavaPlugin {
         // NPCs should only despawn when a house is deactivated (after inactivity timer) or deleted.
         this.houseManager.setOnHouseDeactivated(world -> npcManager.despawnAll(world));
         this.npcsGui = new NpcsGui(this, chatPrompts, houseManager, npcManager, actionsEditor, groupsService);
+        this.bannedPlayersGui = new BannedPlayersGui(this, houseManager, groupsService);
 
         HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
@@ -120,6 +124,7 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerSettingsPunchListener(this, houseManager, playerSettingsGui), this);
         getServer().getPluginManager().registerEvents(new GroupsGuiListener(groupsGui), this);
         getServer().getPluginManager().registerEvents(new PlayerSettingsGuiListener(playerSettingsGui), this);
+        getServer().getPluginManager().registerEvents(new BannedPlayersGuiListener(bannedPlayersGui), this);
         getServer().getPluginManager().registerEvents(new ChatPromptListener(chatPrompts), this);
         getServer().getPluginManager().registerEvents(new ItemEditGuiListener(itemEditGui), this);
         getServer().getPluginManager().registerEvents(new ItemActionListener(this, debug, houseManager, itemEditGui), this);

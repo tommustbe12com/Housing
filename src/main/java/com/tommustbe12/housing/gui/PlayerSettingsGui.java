@@ -53,7 +53,6 @@ public final class PlayerSettingsGui {
         List<UUID> order = new ArrayList<>();
         if (data.visitorId() != null) order.add(data.visitorId());
         if (data.coOwnerId() != null) order.add(data.coOwnerId());
-        if (data.ownerId() != null) order.add(data.ownerId());
         for (UUID id : data.groups().keySet()) if (!order.contains(id)) order.add(id);
 
         int i = 0;
@@ -94,6 +93,10 @@ public final class PlayerSettingsGui {
                 viewer.sendMessage("§cYou cannot change the owner's group.");
                 return;
             }
+            if (gid.equals(groups.groups(info.owner(), info.slot()).ownerId())) {
+                viewer.sendMessage("§cYou cannot assign the Owner group.");
+                return;
+            }
             if (!groups.canAssignGroup(info.owner(), info.slot(), viewer, gid)) {
                 viewer.sendMessage("§cYou cannot assign that group.");
                 return;
@@ -110,6 +113,12 @@ public final class PlayerSettingsGui {
                 boolean canFly = groups.has(info.owner(), info.slot(), target.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.FLY);
                 target.setAllowFlight(canFly);
                 if (!canFly) target.setFlying(false);
+
+                // Ensure the target's viewer scoreboard also has everyone else's tags populated.
+                for (Player other : target.getWorld().getPlayers()) {
+                    String otherTag = groups.tagForDisplay(info.owner(), info.slot(), other.getUniqueId());
+                    tags.applyTag(other, otherTag);
+                }
             }
             open(viewer, target != null ? target : viewer, back);
             return;

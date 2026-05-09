@@ -24,6 +24,7 @@ public final class HouseSettingsGui {
     private final HouseManager houses;
     private final GroupsGui groupsGui;
     private final HouseGroupsService groups;
+    private final BannedPlayersGui bannedGui;
 
     public HouseSettingsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, GroupsGui groupsGui, HouseGroupsService groups) {
         this.plugin = plugin;
@@ -31,6 +32,7 @@ public final class HouseSettingsGui {
         this.houses = houses;
         this.groupsGui = groupsGui;
         this.groups = groups;
+        this.bannedGui = new BannedPlayersGui(plugin, houses, groups);
     }
 
     public boolean isTitle(String title) {
@@ -53,6 +55,7 @@ public final class HouseSettingsGui {
         inv.setItem(12, named(Material.NAME_TAG, "§aHouse Name", List.of("§7Current:", "§f" + ChatColor.translateAlternateColorCodes('&', data.name()), "§7Click to edit")));
         inv.setItem(14, named(Material.COMPASS, "§bSet Spawn Here", List.of("§7Sets house spawn to your location.")));
         inv.setItem(16, named(Material.CLOCK, "§eTime", List.of("§7Current: §f" + data.timeOfDay(), "§7Click to +1000 (wraps at 24000).")));
+        inv.setItem(18, named(Material.BARRIER, "§cBans", List.of("§7View and unban players.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -70,6 +73,10 @@ public final class HouseSettingsGui {
         }
         if (clicked.getType() == Material.FILLED_MAP && groupsGui != null) {
             groupsGui.open(player, () -> open(player));
+            return;
+        }
+        if (clicked.getType() == Material.BARRIER) {
+            bannedGui.open(player, () -> open(player));
             return;
         }
         if (clicked.getType() == Material.NAME_TAG) {
