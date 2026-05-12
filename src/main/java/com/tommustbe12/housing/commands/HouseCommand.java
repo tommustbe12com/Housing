@@ -1,5 +1,6 @@
 package com.tommustbe12.housing.commands;
 
+import com.tommustbe12.housing.actions.HouseActionsService;
 import com.tommustbe12.housing.debug.Debug;
 import com.tommustbe12.housing.houses.HouseData;
 import com.tommustbe12.housing.houses.HouseManager;
@@ -22,7 +23,7 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
     private final Plugin plugin;
     private final Debug debug;
     private final HouseManager houses;
-    private com.tommustbe12.housing.actions.HouseActionsService actions;
+    private HouseActionsService actions;
 
     public HouseCommand(Plugin plugin, Debug debug, HouseManager houses) {
         this.plugin = plugin;
@@ -30,7 +31,7 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
         this.houses = houses;
     }
 
-    public void setActions(com.tommustbe12.housing.actions.HouseActionsService actions) {
+    public void setActions(HouseActionsService actions) {
         this.actions = actions;
     }
 
@@ -40,7 +41,6 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
             sender.sendMessage("§bHousing§7: §fUse the §bHousing §7nether star menu.");
             sender.sendMessage("§bHousing§7: §f/house setname <slot> <name...>");
             sender.sendMessage("§bHousing§7: §f/house setspawn <slot>");
-            sender.sendMessage("§bHousing§7: §f/house cookie give <player> <slot> [amount]");
             return true;
         }
 
@@ -103,42 +103,6 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
                 player.sendMessage("§aSpawn set.");
                 return true;
             }
-            case "cookie" -> {
-                if (args.length < 2) {
-                    sender.sendMessage("§cUsage: /house cookie give <player> <slot> [amount]");
-                    return true;
-                }
-                if (!args[1].equalsIgnoreCase("give")) {
-                    sender.sendMessage("§cUsage: /house cookie give <player> <slot> [amount]");
-                    return true;
-                }
-                if (args.length < 4) {
-                    sender.sendMessage("§cUsage: /house cookie give <player> <slot> [amount]");
-                    return true;
-                }
-                OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
-                UUID owner = target.getUniqueId();
-                if (owner == null) {
-                    sender.sendMessage("§cUnknown player.");
-                    return true;
-                }
-                HouseSlot slot = parseSlot(args[3]);
-                if (slot == null) {
-                    sender.sendMessage("§cSlot must be 1-3.");
-                    return true;
-                }
-                int amount = 1;
-                if (args.length >= 5) {
-                    try {
-                        amount = Math.max(1, Integer.parseInt(args[4]));
-                    } catch (NumberFormatException ignored) {
-                    }
-                }
-                houses.addCookie(owner, slot, amount);
-                sender.sendMessage("§aGave §f" + amount + "§a cookie(s) to §f" + target.getName() + "§a's house §f" + slot.index() + "§a.");
-                debug.to(sender, "Cookie add: owner=" + owner + " slot=" + slot.index() + " amount=" + amount);
-                return true;
-            }
             case "hot" -> {
                 sender.sendMessage("§cHot Houses is GUI-only in V1. Use the nether star menu.");
                 return true;
@@ -180,22 +144,18 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return partial(args[0], List.of("join", "setname", "setspawn", "cookie", "debug", "actions"));
+            return partial(args[0], List.of("join", "setname", "setspawn", "debug", "actions"));
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("actions")) {
             return partial(args[1], List.of("reload"));
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("cookie")) {
-            return partial(args[1], List.of("give"));
-        }
-        if (args.length == 3 && (args[0].equalsIgnoreCase("join") || (args[0].equalsIgnoreCase("cookie") && args[1].equalsIgnoreCase("give")))) {
+        if (args.length == 3 && args[0].equalsIgnoreCase("join")) {
             List<String> names = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers()) names.add(p.getName());
             return partial(args[2], names);
         }
         if ((args.length == 3 && (args[0].equalsIgnoreCase("setname") || args[0].equalsIgnoreCase("setspawn")))
-                || (args.length == 4 && args[0].equalsIgnoreCase("join"))
-                || (args.length == 4 && args[0].equalsIgnoreCase("cookie") && args[1].equalsIgnoreCase("give"))) {
+                || (args.length == 4 && args[0].equalsIgnoreCase("join"))) {
             return partial(args[args.length - 1], List.of("1", "2", "3"));
         }
         return List.of();
@@ -225,3 +185,4 @@ public final class HouseCommand implements TabExecutor, TabCompleter {
         return out;
     }
 }
+

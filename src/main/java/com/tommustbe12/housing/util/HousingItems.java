@@ -13,19 +13,23 @@ import java.util.List;
 public final class HousingItems {
     private HousingItems() {}
 
+    private static NamespacedKey key(Plugin plugin, String k) {
+        return new NamespacedKey(plugin, k);
+    }
+
     public static ItemStack createMenuStar(Plugin plugin) {
         ItemStack star = new ItemStack(Material.NETHER_STAR);
         ItemMeta meta = star.getItemMeta();
         meta.setDisplayName("§bHousing");
         meta.setLore(List.of("§7Right-click to open"));
-        meta.getPersistentDataContainer().set(new NamespacedKey(plugin, "housing_item"), PersistentDataType.BYTE, (byte) 1);
+        meta.getPersistentDataContainer().set(key(plugin, "housing_item"), PersistentDataType.BYTE, (byte) 1);
         star.setItemMeta(meta);
         return star;
     }
 
     public static boolean isMenuStar(Plugin plugin, ItemStack item) {
         if (item == null || item.getType() != Material.NETHER_STAR || !item.hasItemMeta()) return false;
-        Byte b = item.getItemMeta().getPersistentDataContainer().get(new NamespacedKey(plugin, "housing_item"), PersistentDataType.BYTE);
+        Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "housing_item"), PersistentDataType.BYTE);
         return b != null && b == (byte) 1;
     }
 
@@ -35,6 +39,22 @@ public final class HousingItems {
         if (!isMenuStar(plugin, existing)) {
             player.getInventory().setItem(8, createMenuStar(plugin));
         }
+    }
+
+    public static ItemStack createRegionWand(Plugin plugin) {
+        ItemStack wand = new ItemStack(Material.BLAZE_ROD);
+        ItemMeta meta = wand.getItemMeta();
+        meta.setDisplayName("§eRegion Wand");
+        meta.setLore(List.of("§7Left-click: set pos1", "§7Right-click: set pos2"));
+        meta.getPersistentDataContainer().set(key(plugin, "region_wand"), PersistentDataType.BYTE, (byte) 1);
+        wand.setItemMeta(meta);
+        return wand;
+    }
+
+    public static boolean isRegionWand(Plugin plugin, ItemStack item) {
+        if (item == null || item.getType() != Material.BLAZE_ROD || !item.hasItemMeta()) return false;
+        Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "region_wand"), PersistentDataType.BYTE);
+        return b != null && b == (byte) 1;
     }
 }
 

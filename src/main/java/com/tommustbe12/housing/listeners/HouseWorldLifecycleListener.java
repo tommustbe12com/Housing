@@ -14,6 +14,8 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
+import java.util.UUID;
+
 public final class HouseWorldLifecycleListener implements Listener {
     private final Plugin plugin;
     private final Debug debug;
@@ -60,7 +62,13 @@ public final class HouseWorldLifecycleListener implements Listener {
             }
             inventories.applyHouseInventoryOrDefault(player, toInfo.owner(), toInfo.slot());
             houses.applyOwnerState(player, toInfo.owner());
-            if (groups != null) groups.applyDefaultModeIfNeeded(player);
+            if (groups != null) {
+                boolean canSwitch = groups.has(toInfo.owner(), toInfo.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.SWITCH_GAMEMODE);
+                boolean allowCreative = player.getUniqueId().equals(toInfo.owner())
+                        || groups.has(toInfo.owner(), toInfo.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.BUILD);
+                houses.applyHouseCommandPerms(player, canSwitch, allowCreative);
+                groups.applyDefaultModeIfNeeded(player);
+            }
             scoreboards.start(player, toInfo.owner(), toInfo.slot());
             // Apply all tags after scoreboard start so the joining player's viewer scoreboard is populated too.
             refreshWorldTags(player.getWorld(), toInfo.owner(), toInfo.slot());

@@ -45,6 +45,12 @@ import com.tommustbe12.housing.listeners.BannedPlayersGuiListener;
 import com.tommustbe12.housing.tags.OwnerTagService;
 import com.tommustbe12.housing.groups.HouseGroupsService;
 import com.tommustbe12.housing.gui.PlayerSettingsGui;
+import com.tommustbe12.housing.gui.RegionsGui;
+import com.tommustbe12.housing.regions.PosCommand;
+import com.tommustbe12.housing.regions.RegionSelectionService;
+import com.tommustbe12.housing.regions.RegionSelectionVisualizer;
+import com.tommustbe12.housing.regions.RegionWandListener;
+import com.tommustbe12.housing.regions.RegionsService;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Housing extends JavaPlugin {
@@ -107,7 +113,12 @@ public final class Housing extends JavaPlugin {
         this.npcsGui = new NpcsGui(this, chatPrompts, houseManager, npcManager, actionsEditor, groupsService);
         this.bannedPlayersGui = new BannedPlayersGui(this, houseManager, groupsService);
 
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService);
+        RegionSelectionService regionSelections = new RegionSelectionService();
+        RegionSelectionVisualizer regionSelectionVisualizer = new RegionSelectionVisualizer(this, regionSelections);
+        RegionsService regionsService = new RegionsService(this, debug, houseManager);
+        RegionsGui regionsGui = new RegionsGui(this, houseManager, groupsService, regionsService, regionSelections, chatPrompts, actionsEditor);
+
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
         this.cookieService = new CookieService(this, debug, houseManager);
         this.cookieItemListener = new CookieItemListener(this, houseManager, cookieService);
@@ -121,6 +132,9 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HouseVerticalBorderListener(this, houseManager), this);
         getServer().getPluginManager().registerEvents(new HousePermissionEnforcementListener(houseManager, groupsService), this);
         getServer().getPluginManager().registerEvents(new HouseCommandPermissionListener(houseManager, groupsService), this);
+        getServer().getPluginManager().registerEvents(new RegionWandListener(this, regionSelections, regionSelectionVisualizer), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.regions.RegionRuntimeListener(this, debug, houseManager, regionsService), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.regions.RegionRulesListener(this, houseManager, regionsService), this);
         getServer().getPluginManager().registerEvents(new PlayerSettingsPunchListener(this, houseManager, playerSettingsGui), this);
         getServer().getPluginManager().registerEvents(new GroupsGuiListener(groupsGui), this);
         getServer().getPluginManager().registerEvents(new PlayerSettingsGuiListener(playerSettingsGui), this);
@@ -162,6 +176,17 @@ public final class Housing extends JavaPlugin {
             getCommand("edit").setExecutor(new EditCommand(itemEditGui));
         } else {
             debug.warn("Command 'edit' not found in plugin.yml");
+        }
+
+        if (getCommand("pos1") != null) {
+            getCommand("pos1").setExecutor(new PosCommand(regionSelections, regionSelectionVisualizer, true));
+        } else {
+            debug.warn("Command 'pos1' not found in plugin.yml");
+        }
+        if (getCommand("pos2") != null) {
+            getCommand("pos2").setExecutor(new PosCommand(regionSelections, regionSelectionVisualizer, false));
+        } else {
+            debug.warn("Command 'pos2' not found in plugin.yml");
         }
 
     }

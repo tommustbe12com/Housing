@@ -55,6 +55,20 @@ public final class HouseCommandPermissionListener implements Listener {
             if (!groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.SWITCH_GAMEMODE)) {
                 event.setCancelled(true);
                 player.sendMessage("§cYou don't have permission to change gamemode in this house.");
+                return;
+            }
+            // Restrict creative mode to builders (or owner), even if they can switch gamemode in general.
+            String[] parts = lower.split("\\s+");
+            if (parts.length >= 2) {
+                String targetMode = parts[1];
+                if (targetMode.startsWith("c") || targetMode.equals("1") || targetMode.equals("creative")) {
+                    boolean allowCreative = player.getUniqueId().equals(info.owner())
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.BUILD);
+                    if (!allowCreative) {
+                        event.setCancelled(true);
+                        player.sendMessage("§cYou need Build permission to switch to Creative in this house.");
+                    }
+                }
             }
             return;
         }

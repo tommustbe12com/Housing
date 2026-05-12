@@ -50,6 +50,7 @@ public final class HouseItemListener implements Listener {
     private final NpcsGui npcsGui;
     private final CustomMenusGui customMenusGui;
     private final HouseGroupsService groups;
+    private final RegionsGui regionsGui;
 
     private final NamespacedKey hotOwnerKey;
     private final NamespacedKey hotSlotKey;
@@ -67,7 +68,8 @@ public final class HouseItemListener implements Listener {
             InventoryLayoutsGui inventoryLayoutsGui,
             CustomMenusGui customMenusGui,
             NpcsGui npcsGui,
-            HouseGroupsService groups
+            HouseGroupsService groups,
+            RegionsGui regionsGui
     ) {
         this.plugin = plugin;
         this.debug = debug;
@@ -82,6 +84,7 @@ public final class HouseItemListener implements Listener {
         this.customMenusGui = customMenusGui;
         this.npcsGui = npcsGui;
         this.groups = groups;
+        this.regionsGui = regionsGui;
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
     }
@@ -121,6 +124,7 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isChangeVariableTitle(title)
                 || actionsEditor.isPlaySoundTitle(title)
                 || functionsGui.isTitle(title)
+                || (regionsGui != null && regionsGui.isTitle(title))
                 || (conditionalGui != null && conditionalGui.isTitle(title))
                 || (scoreboardEditorGui != null && scoreboardEditorGui.isTitle(title))
                 || (commandsGui != null && commandsGui.isTitle(title))
@@ -326,6 +330,12 @@ public final class HouseItemListener implements Listener {
             var info = houses.getHouseInfoByWorld(player.getWorld());
             boolean inOwn = info != null && info.owner().equals(player.getUniqueId());
             if (clicked.getType() == Material.REDSTONE) { openEventActionsMenu(player); return; }
+            if (clicked.getType() == Material.MAP && regionsGui != null) {
+                if (info == null) return;
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_REGIONS))) return;
+                regionsGui.openList(player, () -> openSystemsMenu(player));
+                return;
+            }
             if (clicked.getType() == Material.OAK_SIGN) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_SCOREBOARD))) return;
@@ -366,6 +376,11 @@ public final class HouseItemListener implements Listener {
             return;
         }
 
+        if (regionsGui != null && regionsGui.isTitle(title)) {
+            regionsGui.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openSystemsMenu(player));
+            return;
+        }
+
         // Event actions
         if (TITLE_EVENT_ACTIONS.equals(title)) {
             if (clicked.getType() == Material.ARROW) { openSystemsMenu(player); return; }
@@ -403,6 +418,11 @@ public final class HouseItemListener implements Listener {
             int slotIndex = parseSlotFromTitle(title);
             HouseSlot slot = HouseSlot.fromIndex(slotIndex);
             if (slot == null) return;
+            // Never allow choosing filler panes (or any stained glass pane) as the house icon.
+            if (clicked.getType().name().endsWith("_STAINED_GLASS_PANE")) {
+                player.sendMessage("§cThat icon isn't allowed. Pick a real item/block icon.");
+                return;
+            }
             var data = houses.getHouse(player.getUniqueId(), slot);
             data.setIconMaterial(clicked.getType().name());
             houses.saveHouse(data);
@@ -440,6 +460,7 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isFunctionPickerTitle(title)
                 || actionsEditor.isLayoutPickerTitle(title)
                 || functionsGui.isTitle(title)
+                || (regionsGui != null && regionsGui.isTitle(title))
                 || (conditionalGui != null && conditionalGui.isTitle(title))
                 || (scoreboardEditorGui != null && scoreboardEditorGui.isTitle(title))
                 || (commandsGui != null && commandsGui.isTitle(title))
@@ -490,7 +511,7 @@ public final class HouseItemListener implements Listener {
         ItemStack border = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, border);
 
-        int[] clear = new int[]{10,12,14,16,20,22,24};
+        int[] clear = new int[]{10,12,14,16,20,22,24,26};
         for (int idx : clear) inv.setItem(idx, null);
 
         inv.setItem(10, named(Material.REDSTONE, "§eEvent Actions", List.of("§7Configure triggers.")));
@@ -500,6 +521,7 @@ public final class HouseItemListener implements Listener {
         inv.setItem(20, named(Material.CHEST, "§6Inventory Layouts", List.of("§7Saved inventories.")));
         inv.setItem(22, named(Material.ITEM_FRAME, "§aCustom Menus", List.of("§7Create clickable GUIs.")));
         inv.setItem(24, named(Material.ARMOR_STAND, "§eNPCs", List.of("§7Create and edit NPCs.")));
+        inv.setItem(26, named(Material.MAP, "§aRegions", List.of("§7WorldEdit-style regions.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to main menu.")));
         player.openInventory(inv);
     }
@@ -563,8 +585,17 @@ public final class HouseItemListener implements Listener {
         Material[] icons = new Material[]{
                 Material.GRASS_BLOCK, Material.DIAMOND_SWORD, Material.NETHERITE_SWORD, Material.BOW,
                 Material.GOLDEN_APPLE, Material.ENDER_PEARL, Material.TOTEM_OF_UNDYING,
-                Material.CHEST, Material.REDSTONE, Material.BOOK, Material.BEACON,
-                Material.DRAGON_EGG, Material.AMETHYST_SHARD, Material.CLOCK
+                Material.CHEST, Material.ENDER_CHEST, Material.REDSTONE, Material.BOOK, Material.BEACON,
+                Material.DRAGON_EGG, Material.AMETHYST_SHARD, Material.CLOCK,
+                Material.BRICKS, Material.OAK_PLANKS, Material.SPRUCE_PLANKS, Material.STONE_BRICKS,
+                Material.COBBLESTONE, Material.QUARTZ_BLOCK, Material.SEA_LANTERN,
+                Material.LANTERN, Material.PAINTING, Material.ITEM_FRAME,
+                Material.ANVIL, Material.ENCHANTING_TABLE,
+                Material.NOTE_BLOCK, Material.JUKEBOX,
+                Material.SPAWNER, Material.NETHER_STAR,
+                Material.IRON_PICKAXE, Material.DIAMOND_PICKAXE,
+                Material.PAPER, Material.BOOKSHELF,
+                Material.CAKE, Material.PUMPKIN, Material.JACK_O_LANTERN
         };
         int i = 0;
         for (Material mat : icons) inv.setItem(10 + i++, named(mat, "§a" + mat.name(), List.of("§7Click to set icon.")));

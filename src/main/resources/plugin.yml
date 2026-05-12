@@ -14,3 +14,9 @@ commands:
   edit:
     description: Edit the held item
     usage: /edit
+  pos1:
+    description: Set region position 1
+    usage: /pos1
+  pos2:
+    description: Set region position 2
+    usage: /pos2

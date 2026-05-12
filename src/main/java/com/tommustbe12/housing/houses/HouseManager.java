@@ -24,6 +24,7 @@ public final class HouseManager {
     private final Map<String, BukkitTask> deactivateTasks = new ConcurrentHashMap<>();
     private final Map<String, String> worldToHouseId = new ConcurrentHashMap<>();
     private final Map<UUID, PermissionAttachment> ownerAttachments = new ConcurrentHashMap<>();
+    private final Map<UUID, PermissionAttachment> commandAttachments = new ConcurrentHashMap<>();
     private volatile Consumer<World> onHouseDeactivated;
 
     public HouseManager(Plugin plugin, Debug debug) {
@@ -66,7 +67,8 @@ public final class HouseManager {
         HouseData data = getHouse(owner, slot);
         debug.toOps("Starting house " + id + " (name=" + data.name() + ")");
 
-        World world = createOrLoadWorld(worldName(owner, slot));
+        WorldCreateResult res = createOrLoadWorld(worldName(owner, slot));
+        World world = res.world;
         world.setTime(data.timeOfDay());
         world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
         world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
@@ -74,7 +76,8 @@ public final class HouseManager {
         world.setDifficulty(Difficulty.NORMAL);
         applyWorldBorder(world);
 
-        ensureStarterPlatform(world);
+        // Only build the starter platform for brand-new worlds.
+        if (res.createdFresh) ensureStarterPlatform(world);
 
         Location spawn = data.spawnInWorld(world);
         if (spawn == null) {
@@ -279,6 +282,27 @@ public final class HouseManager {
         if (attachment != null) attachment.remove();
     }
 
+    public void applyHouseCommandPerms(Player player, boolean allowSwitchGamemode, boolean allowCreative) {
+        if (player == null) return;
+        UUID id = player.getUniqueId();
+        PermissionAttachment existing = commandAttachments.get(id);
+        if (!allowSwitchGamemode) {
+            if (existing != null) {
+                existing.remove();
+                commandAttachments.remove(id);
+            }
+            return;
+        }
+        if (existing == null) {
+            existing = player.addAttachment(plugin);
+            commandAttachments.put(id, existing);
+        }
+        existing.setPermission("minecraft.command.gamemode", true);
+        existing.setPermission("minecraft.command.gamemode.survival", true);
+        existing.setPermission("minecraft.command.gamemode.adventure", true);
+        existing.setPermission("minecraft.command.gamemode.creative", allowCreative);
+    }
+
     public void applyOwnerState(Player player, UUID houseOwner) {
         boolean isOwner = player.getUniqueId().equals(houseOwner);
         player.setGameMode(isOwner ? GameMode.CREATIVE : GameMode.ADVENTURE);
@@ -289,9 +313,17 @@ public final class HouseManager {
         }
     }
 
-    private World createOrLoadWorld(String name) {
+    private WorldCreateResult createOrLoadWorld(String name) {
         World existing = Bukkit.getWorld(name);
-        if (existing != null) return existing;
+        if (existing != null) return new WorldCreateResult(existing, false);
+
+        boolean createdFresh = true;
+        File container = Bukkit.getWorldContainer();
+        if (container != null) {
+            File folder = new File(container, name);
+            // If the world folder already exists on disk, we're loading an existing house, not creating a new one.
+            createdFresh = !folder.exists();
+        }
 
         WorldCreator creator = new WorldCreator(name);
         creator.environment(World.Environment.NORMAL);
@@ -299,7 +331,7 @@ public final class HouseManager {
         creator.generator(new EmptyVoidGenerator());
         World world = creator.createWorld();
         if (world == null) throw new IllegalStateException("Failed to create world: " + name);
-        return world;
+        return new WorldCreateResult(world, createdFresh);
     }
 
     private void applyWorldBorder(World world) {
@@ -384,5 +416,15 @@ public final class HouseManager {
     }
 
     private static final class EmptyVoidGenerator extends ChunkGenerator {
+    }
+
+    private static final class WorldCreateResult {
+        private final World world;
+        private final boolean createdFresh;
+
+        private WorldCreateResult(World world, boolean createdFresh) {
+            this.world = world;
+            this.createdFresh = createdFresh;
+        }
     }
 }
