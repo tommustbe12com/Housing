@@ -51,6 +51,10 @@ public final class HouseItemListener implements Listener {
     private final CustomMenusGui customMenusGui;
     private final HouseGroupsService groups;
     private final RegionsGui regionsGui;
+    private final WeatherGui weatherGui;
+    private final BiomesSkiesGui biomesSkiesGui;
+    private final ItemsGui itemsGui;
+    private final HousePlayersGui housePlayersGui;
 
     private final NamespacedKey hotOwnerKey;
     private final NamespacedKey hotSlotKey;
@@ -69,7 +73,11 @@ public final class HouseItemListener implements Listener {
             CustomMenusGui customMenusGui,
             NpcsGui npcsGui,
             HouseGroupsService groups,
-            RegionsGui regionsGui
+            RegionsGui regionsGui,
+            WeatherGui weatherGui,
+            BiomesSkiesGui biomesSkiesGui,
+            ItemsGui itemsGui,
+            HousePlayersGui housePlayersGui
     ) {
         this.plugin = plugin;
         this.debug = debug;
@@ -85,6 +93,10 @@ public final class HouseItemListener implements Listener {
         this.npcsGui = npcsGui;
         this.groups = groups;
         this.regionsGui = regionsGui;
+        this.weatherGui = weatherGui;
+        this.biomesSkiesGui = biomesSkiesGui;
+        this.itemsGui = itemsGui;
+        this.housePlayersGui = housePlayersGui;
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
     }
@@ -96,7 +108,7 @@ public final class HouseItemListener implements Listener {
         Player player = event.getPlayer();
         if (!HousingItems.isMenuStar(plugin, player.getInventory().getItemInMainHand())) return;
         event.setCancelled(true);
-        openMainMenu(player);
+        openMainMenuV2(player);
     }
 
     public void giveMenuItem(Player player) {
@@ -114,6 +126,10 @@ public final class HouseItemListener implements Listener {
                 || TITLE_HOT.equals(title)
                 || TITLE_SYSTEMS.equals(title)
                 || TITLE_EVENT_ACTIONS.equals(title)
+                || (weatherGui != null && weatherGui.isTitle(title))
+                || (biomesSkiesGui != null && biomesSkiesGui.isTitle(title))
+                || (itemsGui != null && itemsGui.isTitle(title))
+                || (housePlayersGui != null && housePlayersGui.isTitle(title))
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)
                 || actionsEditor.isEditorTitle(title)
@@ -196,7 +212,7 @@ public final class HouseItemListener implements Listener {
             return;
         }
         if (houseSettingsGui != null && houseSettingsGui.isTitle(title)) {
-            houseSettingsGui.handleClick(player, event.getRawSlot(), clicked, () -> openMainMenu(player));
+            houseSettingsGui.handleClick(player, event.getRawSlot(), clicked, () -> openMainMenuV2(player));
             return;
         }
         if (inventoryLayoutsGui != null && inventoryLayoutsGui.isTitle(title)) {
@@ -212,8 +228,96 @@ public final class HouseItemListener implements Listener {
             return;
         }
 
-        // Main menu
+        // New main menu (5 rows)
         if (TITLE_MAIN.equals(title)) {
+            var info = houses.getHouseInfoByWorld(player.getWorld());
+            boolean inHouse = info != null;
+            boolean inOwn = inHouse && info.owner().equals(player.getUniqueId());
+
+            if (clicked.getType() == Material.ARROW) { player.closeInventory(); return; } // bottom middle
+
+            if (!inHouse) {
+                if (clicked.getType() == Material.SPRUCE_DOOR) openHotMenu(player);
+                return;
+            }
+
+            if (clicked.getType() == Material.POWERED_RAIL) {
+                boolean canSystems = inOwn;
+                if (!inOwn && groups != null) {
+                    canSystems = groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_ACTIONS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_EVENT_ACTIONS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_SCOREBOARD)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_COMMANDS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_FUNCTIONS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_INVENTORY_LAYOUTS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_CUSTOM_MENUS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.USE_NPCS)
+                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_REGIONS);
+                }
+                if (canSystems) openSystemsMenu(player);
+                return;
+            }
+
+            if (clicked.getType() == Material.COMPARATOR && houseSettingsGui != null) { houseSettingsGui.open(player); return; }
+            if (clicked.getType() == Material.FILLED_MAP && groupsGui != null) {
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.CHANGE_GROUP))) return;
+                groupsGui.open(player, () -> openMainMenuV2(player));
+                return;
+            }
+            if (clicked.getType() == Material.WRITABLE_BOOK && housePlayersGui != null) { housePlayersGui.open(player, () -> openMainMenuV2(player)); return; }
+            if (clicked.getType() == Material.CAULDRON) { player.getInventory().clear(); player.sendMessage("§aInventory cleared."); return; }
+            if (clicked.getType() == Material.SPRUCE_DOOR) { openHotMenu(player); return; }
+
+            if (clicked.getType() == Material.STONE_PICKAXE && inOwn) {
+                var data = houses.getHouse(info.owner(), info.slot());
+                var spawn = data.spawnInWorld(player.getWorld());
+                if (spawn != null) player.teleport(spawn);
+                player.setGameMode(org.bukkit.GameMode.ADVENTURE);
+                openMainMenuV2(player);
+                return;
+            }
+            if (clicked.getType() == Material.PUFFERFISH && inOwn) {
+                player.setGameMode(org.bukkit.GameMode.CREATIVE);
+                openMainMenuV2(player);
+                return;
+            }
+
+            if (clicked.getType() == Material.EMERALD && itemsGui != null) {
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.BUILD))) return;
+                itemsGui.open(player, () -> openMainMenuV2(player));
+                return;
+            }
+            if (clicked.getType() == Material.CLOCK && weatherGui != null) {
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.CHANGE_SETTINGS))) return;
+                weatherGui.open(player, () -> openMainMenuV2(player));
+                return;
+            }
+            if (clicked.getType() == Material.GRASS_BLOCK && biomesSkiesGui != null) {
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.CHANGE_SETTINGS))) return;
+                biomesSkiesGui.open(player, () -> openMainMenuV2(player));
+            }
+            return;
+        }
+
+        if (weatherGui != null && weatherGui.isTitle(title)) {
+            weatherGui.handleClick(player, clicked, () -> openMainMenuV2(player));
+            return;
+        }
+        if (biomesSkiesGui != null && biomesSkiesGui.isTitle(title)) {
+            biomesSkiesGui.handleClick(player, event.getRawSlot(), clicked, () -> openMainMenuV2(player));
+            return;
+        }
+        if (itemsGui != null && itemsGui.isTitle(title)) {
+            itemsGui.handleClick(player, clicked, () -> openMainMenuV2(player));
+            return;
+        }
+        if (housePlayersGui != null && housePlayersGui.isTitle(title)) {
+            housePlayersGui.handleClick(player, event.getRawSlot(), clicked, () -> openMainMenuV2(player));
+            return;
+        }
+
+        // Main menu
+        if (false && TITLE_MAIN.equals(title)) {
             int raw = event.getRawSlot();
             if (clicked.getType() == Material.ARROW) {
                 player.closeInventory();
@@ -326,7 +430,7 @@ public final class HouseItemListener implements Listener {
 
         // Systems menu
         if (TITLE_SYSTEMS.equals(title)) {
-            if (clicked.getType() == Material.ARROW) { openMainMenu(player); return; }
+            if (clicked.getType() == Material.ARROW) { openMainMenuV2(player); return; }
             var info = houses.getHouseInfoByWorld(player.getWorld());
             boolean inOwn = info != null && info.owner().equals(player.getUniqueId());
             if (clicked.getType() == Material.REDSTONE) { openEventActionsMenu(player); return; }
@@ -453,6 +557,10 @@ public final class HouseItemListener implements Listener {
                 || TITLE_HOT.equals(title)
                 || TITLE_SYSTEMS.equals(title)
                 || TITLE_EVENT_ACTIONS.equals(title)
+                || (weatherGui != null && weatherGui.isTitle(title))
+                || (biomesSkiesGui != null && biomesSkiesGui.isTitle(title))
+                || (itemsGui != null && itemsGui.isTitle(title))
+                || (housePlayersGui != null && housePlayersGui.isTitle(title))
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)
                 || actionsEditor.isEditorTitle(title)
@@ -503,6 +611,46 @@ public final class HouseItemListener implements Listener {
             inv.setItem(18, named(Material.ARROW, "§7Back", List.of("§7Close this menu.")));
             inv.setItem(26, named(Material.OAK_DOOR, "§cBack to Hub", List.of("§7Teleport back to the hub.")));
         }
+        player.openInventory(inv);
+    }
+
+    private void openMainMenuV2(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 45, TITLE_MAIN);
+        fill(inv);
+        var info = houses.getHouseInfoByWorld(player.getWorld());
+        boolean inOwn = info != null && info.owner().equals(player.getUniqueId());
+
+        inv.setItem(40, named(Material.ARROW, "§7Back", List.of("§7Close this menu.")));
+
+        if (info == null) {
+            inv.setItem(36, named(Material.SPRUCE_DOOR, "§aTravel to someone else's house", List.of("§7Opens Hot Houses.")));
+            player.openInventory(inv);
+            return;
+        }
+
+        inv.setItem(0, named(Material.STICK, "§ePro Tools", List.of("§7Coming soon.")));
+        inv.setItem(2, named(Material.BRICKS, "§aBlocks", List.of("§7Coming soon.")));
+        inv.setItem(4, named(Material.SKELETON_SKULL, "§fSkulls", List.of("§7Coming soon.")));
+        inv.setItem(6, named(Material.EMERALD, "§aItems", List.of("§7Open items menu.")));
+
+        inv.setItem(12, named(Material.CLOCK, "§bWeather", List.of("§7Change house weather.")));
+        inv.setItem(14, named(Material.GRASS_BLOCK, "§aBiomes & Skies", List.of("§7Change biome/sky.")));
+
+        inv.setItem(30, named(Material.POWERED_RAIL, "§bSystems", List.of("§7Customize your house.")));
+        if (inOwn) {
+            boolean buildMode = player.getGameMode() == org.bukkit.GameMode.CREATIVE;
+            inv.setItem(35, named(buildMode ? Material.STONE_PICKAXE : Material.PUFFERFISH,
+                    buildMode ? "§eExit Build Mode" : "§aEnter Build Mode",
+                    List.of("§7Click to toggle.")));
+        }
+
+        inv.setItem(36, named(Material.SPRUCE_DOOR, "§aTravel to someone else's house", List.of("§7Opens Hot Houses.")));
+        inv.setItem(39, named(Material.COMPARATOR, "§eHouse Settings", List.of("§7Edit house settings.")));
+        inv.setItem(41, named(Material.FILLED_MAP, "§bPermissions & Groups", List.of("§7Edit groups and permissions.")));
+        inv.setItem(42, named(Material.WRITABLE_BOOK, "§fPlayers Here", List.of("§7Manage players currently in this house.")));
+        inv.setItem(43, named(Material.CAULDRON, "§7Clear Inventory", List.of("§7Clears your inventory.")));
+        inv.setItem(44, named(Material.JUKEBOX, "§dJukebox", List.of("§7Coming soon.")));
+
         player.openInventory(inv);
     }
 

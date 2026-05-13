@@ -75,6 +75,8 @@ public final class HouseManager {
         world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
         world.setDifficulty(Difficulty.NORMAL);
         applyWorldBorder(world);
+        applyWeather(world, data.weather());
+        applyBiome(world, data.biome());
 
         // Only build the starter platform for brand-new worlds.
         if (res.createdFresh) ensureStarterPlatform(world);
@@ -88,6 +90,70 @@ public final class HouseManager {
         active.put(id, activeHouse);
         worldToHouseId.put(world.getName(), id);
         return activeHouse;
+    }
+
+    public void applyWeather(World world, String weather) {
+        if (world == null) return;
+        String w = weather == null ? "SUNNY" : weather.trim().toUpperCase(Locale.ROOT);
+        switch (w) {
+            case "RAIN" -> {
+                world.setStorm(true);
+                world.setThundering(false);
+            }
+            case "THUNDER" -> {
+                world.setStorm(true);
+                world.setThundering(true);
+            }
+            case "SNOW" -> {
+                // Minecraft snow is biome-dependent; treat SNOW as "storm" + set biome to snowy in UI.
+                world.setStorm(true);
+                world.setThundering(false);
+            }
+            default -> {
+                world.setStorm(false);
+                world.setThundering(false);
+            }
+        }
+    }
+
+    public void applyBiome(World world, String biomeName) {
+        if (world == null || biomeName == null || biomeName.isBlank()) return;
+        Biome biome;
+        try {
+            biome = Biome.valueOf(biomeName.trim().toUpperCase(Locale.ROOT));
+        } catch (Exception e) {
+            return;
+        }
+        // Apply to the whole buildable area (world border) once on load/change.
+        int radius = (int) Math.floor(world.getWorldBorder().getSize() / 2.0);
+        if (radius <= 0) radius = 128;
+        int minX = -radius;
+        int maxX = radius;
+        int minZ = -radius;
+        int maxZ = radius;
+        int y = Math.max(world.getMinHeight(), 0);
+
+        try {
+            // Spigot/Paper 1.21: World#setBiome(int x, int y, int z, Biome)
+            var m = World.class.getMethod("setBiome", int.class, int.class, int.class, Biome.class);
+            for (int x = minX; x <= maxX; x++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    m.invoke(world, x, y, z, biome);
+                }
+            }
+            return;
+        } catch (Throwable ignored) {
+        }
+        try {
+            // Older fallback: World#setBiome(int x, int z, Biome)
+            var m = World.class.getMethod("setBiome", int.class, int.class, Biome.class);
+            for (int x = minX; x <= maxX; x++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    m.invoke(world, x, z, biome);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     public boolean joinHouse(Player player, UUID owner, HouseSlot slot) {

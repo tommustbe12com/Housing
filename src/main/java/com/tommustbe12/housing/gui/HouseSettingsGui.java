@@ -22,7 +22,6 @@ public final class HouseSettingsGui {
     private final Plugin plugin;
     private final ChatPrompts prompts;
     private final HouseManager houses;
-    private final GroupsGui groupsGui;
     private final HouseGroupsService groups;
     private final BannedPlayersGui bannedGui;
 
@@ -30,7 +29,6 @@ public final class HouseSettingsGui {
         this.plugin = plugin;
         this.prompts = prompts;
         this.houses = houses;
-        this.groupsGui = groupsGui;
         this.groups = groups;
         this.bannedGui = new BannedPlayersGui(plugin, houses, groups);
     }
@@ -51,12 +49,13 @@ public final class HouseSettingsGui {
 
         Inventory inv = Bukkit.createInventory(null, 27, TITLE);
         fill(inv);
-        inv.setItem(10, named(Material.FILLED_MAP, "§bGroups", List.of("§7Edit groups and permissions.")));
-        inv.setItem(12, named(Material.NAME_TAG, "§aHouse Name", List.of("§7Current:", "§f" + ChatColor.translateAlternateColorCodes('&', data.name()), "§7Click to edit")));
-        inv.setItem(14, named(Material.COMPASS, "§bSet Spawn Here", List.of("§7Sets house spawn to your location.")));
-        inv.setItem(16, named(Material.CLOCK, "§eTime", List.of("§7Current: §f" + data.timeOfDay(), "§7Click to +1000 (wraps at 24000).")));
-        inv.setItem(18, named(Material.BARRIER, "§cBans", List.of("§7View and unban players.")));
-        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        inv.setItem(11, named(Material.NAME_TAG, "§aHouse Name", List.of("§7Current:", "§f" + ChatColor.translateAlternateColorCodes('&', data.name()), "§7Click to edit")));
+        inv.setItem(13, named(Material.COMPASS, "§bSet Spawn Here", List.of("§7Sets house spawn to your location.")));
+        inv.setItem(15, named(Material.CLOCK, "§eTime", List.of("§7Current: §f" + data.timeOfDay(), "§7Click to +1000 (wraps at 24000).")));
+        inv.setItem(17, named(Material.BARRIER, "§cBans", List.of("§7View and unban players.")));
+
+        // Back is always bottom middle.
+        inv.setItem(22, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
 
@@ -67,14 +66,8 @@ public final class HouseSettingsGui {
         if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.CHANGE_SETTINGS))) return;
         HouseData data = houses.getHouse(info.owner(), info.slot());
 
-        if (clicked.getType() == Material.ARROW) {
-            back.run();
-            return;
-        }
-        if (clicked.getType() == Material.FILLED_MAP && groupsGui != null) {
-            groupsGui.open(player, () -> open(player));
-            return;
-        }
+        if (clicked == null) return;
+        if (clicked.getType() == Material.ARROW) { back.run(); return; }
         if (clicked.getType() == Material.BARRIER) {
             bannedGui.open(player, () -> open(player));
             return;
@@ -100,7 +93,6 @@ public final class HouseSettingsGui {
         if (clicked.getType() == Material.CLOCK) {
             long next = (data.timeOfDay() + 1000L) % 24000L;
             setTime(player, data, next);
-            return;
         }
     }
 
@@ -126,3 +118,4 @@ public final class HouseSettingsGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
+

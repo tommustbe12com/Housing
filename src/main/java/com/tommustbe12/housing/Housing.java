@@ -46,6 +46,10 @@ import com.tommustbe12.housing.tags.OwnerTagService;
 import com.tommustbe12.housing.groups.HouseGroupsService;
 import com.tommustbe12.housing.gui.PlayerSettingsGui;
 import com.tommustbe12.housing.gui.RegionsGui;
+import com.tommustbe12.housing.gui.WeatherGui;
+import com.tommustbe12.housing.gui.BiomesSkiesGui;
+import com.tommustbe12.housing.gui.ItemsGui;
+import com.tommustbe12.housing.gui.HousePlayersGui;
 import com.tommustbe12.housing.regions.PosCommand;
 import com.tommustbe12.housing.regions.RegionSelectionService;
 import com.tommustbe12.housing.regions.RegionSelectionVisualizer;
@@ -118,7 +122,12 @@ public final class Housing extends JavaPlugin {
         RegionsService regionsService = new RegionsService(this, debug, houseManager);
         RegionsGui regionsGui = new RegionsGui(this, houseManager, groupsService, regionsService, regionSelections, chatPrompts, actionsEditor);
 
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui);
+        WeatherGui weatherGui = new WeatherGui(this, houseManager, groupsService);
+        BiomesSkiesGui biomesSkiesGui = new BiomesSkiesGui(this, houseManager, groupsService);
+        ItemsGui itemsGui = new ItemsGui();
+        HousePlayersGui housePlayersGui = new HousePlayersGui(houseManager, groupsService, playerSettingsGui);
+
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui, weatherGui, biomesSkiesGui, itemsGui, housePlayersGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
         this.cookieService = new CookieService(this, debug, houseManager);
         this.cookieItemListener = new CookieItemListener(this, houseManager, cookieService);

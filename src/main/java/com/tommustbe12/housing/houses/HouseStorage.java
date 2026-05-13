@@ -44,6 +44,9 @@ public final class HouseStorage {
             data.setCookiesWeek(cookiesWeek);
         }
         data.setIconMaterial(yaml.getString("icon", data.iconMaterial()));
+        data.setWeather(yaml.getString("weather", data.weather()));
+        data.setBiome(yaml.getString("biome", data.biome()));
+        data.setSky(yaml.getString("sky", data.sky()));
 
         if (yaml.getBoolean("spawn.set", false)) {
             double x = yaml.getDouble("spawn.x");
@@ -66,6 +69,9 @@ public final class HouseStorage {
         yaml.set("cookies.week", data.cookiesWeek());
         yaml.set("cookies.count", data.cookies());
         yaml.set("icon", data.iconMaterial());
+        yaml.set("weather", data.weather());
+        yaml.set("biome", data.biome());
+        yaml.set("sky", data.sky());
         yaml.set("spawn.set", data.hasSpawn());
         if (data.hasSpawn()) {
             yaml.set("spawn.x", data.spawnX());

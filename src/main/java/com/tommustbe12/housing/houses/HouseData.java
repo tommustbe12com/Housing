@@ -20,6 +20,9 @@ public final class HouseData {
     private float spawnPitch;
     private boolean hasSpawn;
     private String iconMaterial;
+    private String weather; // SUNNY, RAIN, THUNDER, SNOW
+    private String biome; // Biome enum name
+    private String sky; // OVERWORLD, NETHER, END (visual-only placeholder)
 
     public HouseData(UUID owner, HouseSlot slot) {
         this.owner = owner;
@@ -31,6 +34,9 @@ public final class HouseData {
         this.cookiesWeek = "";
         this.hasSpawn = false;
         this.iconMaterial = "GRASS_BLOCK";
+        this.weather = "SUNNY";
+        this.biome = "PLAINS";
+        this.sky = "OVERWORLD";
     }
 
     public UUID owner() {
@@ -129,4 +135,13 @@ public final class HouseData {
     public void setIconMaterial(String iconMaterial) {
         this.iconMaterial = iconMaterial;
     }
+
+    public String weather() { return weather; }
+    public void setWeather(String weather) { this.weather = weather == null ? "SUNNY" : weather; }
+
+    public String biome() { return biome; }
+    public void setBiome(String biome) { this.biome = biome == null ? "PLAINS" : biome; }
+
+    public String sky() { return sky; }
+    public void setSky(String sky) { this.sky = sky == null ? "OVERWORLD" : sky; }
 }
