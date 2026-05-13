@@ -46,6 +46,7 @@ public final class HouseItemListener implements Listener {
     private final ScoreboardEditorGui scoreboardEditorGui;
     private final CommandsGui commandsGui;
     private final HouseSettingsGui houseSettingsGui;
+    private final GroupsGui groupsGui;
     private final InventoryLayoutsGui inventoryLayoutsGui;
     private final NpcsGui npcsGui;
     private final CustomMenusGui customMenusGui;
@@ -69,6 +70,7 @@ public final class HouseItemListener implements Listener {
             ScoreboardEditorGui scoreboardEditorGui,
             CommandsGui commandsGui,
             HouseSettingsGui houseSettingsGui,
+            GroupsGui groupsGui,
             InventoryLayoutsGui inventoryLayoutsGui,
             CustomMenusGui customMenusGui,
             NpcsGui npcsGui,
@@ -88,6 +90,7 @@ public final class HouseItemListener implements Listener {
         this.scoreboardEditorGui = scoreboardEditorGui;
         this.commandsGui = commandsGui;
         this.houseSettingsGui = houseSettingsGui;
+        this.groupsGui = groupsGui;
         this.inventoryLayoutsGui = inventoryLayoutsGui;
         this.customMenusGui = customMenusGui;
         this.npcsGui = npcsGui;

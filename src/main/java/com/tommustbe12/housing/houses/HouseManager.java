@@ -2,6 +2,7 @@ package com.tommustbe12.housing.houses;
 
 import com.tommustbe12.housing.debug.Debug;
 import org.bukkit.*;
+import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.generator.ChunkGenerator;

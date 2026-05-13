@@ -127,7 +127,7 @@ public final class Housing extends JavaPlugin {
         ItemsGui itemsGui = new ItemsGui();
         HousePlayersGui housePlayersGui = new HousePlayersGui(houseManager, groupsService, playerSettingsGui);
 
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui, weatherGui, biomesSkiesGui, itemsGui, housePlayersGui);
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, groupsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui, weatherGui, biomesSkiesGui, itemsGui, housePlayersGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
         this.cookieService = new CookieService(this, debug, houseManager);
         this.cookieItemListener = new CookieItemListener(this, houseManager, cookieService);
