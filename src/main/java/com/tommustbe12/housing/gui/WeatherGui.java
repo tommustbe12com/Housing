@@ -44,7 +44,6 @@ public final class WeatherGui {
         inv.setItem(10, named(Material.SUNFLOWER, "§eSunny", List.of("§7Set clear weather.")));
         inv.setItem(12, named(Material.WATER_BUCKET, "§bRain", List.of("§7Set rain.")));
         inv.setItem(14, named(Material.TRIDENT, "§9Thunder", List.of("§7Set thunderstorm.")));
-        inv.setItem(16, named(Material.SNOWBALL, "§fSnowing", List.of("§7Storm + use snowy biome.")));
         inv.setItem(22, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -62,7 +61,6 @@ public final class WeatherGui {
         if (clicked.getType() == Material.SUNFLOWER) data.setWeather("SUNNY");
         if (clicked.getType() == Material.WATER_BUCKET) data.setWeather("RAIN");
         if (clicked.getType() == Material.TRIDENT) data.setWeather("THUNDER");
-        if (clicked.getType() == Material.SNOWBALL) data.setWeather("SNOW");
         houses.saveHouse(data);
         houses.applyWeather(player.getWorld(), data.weather());
         open(player, back);
@@ -82,4 +80,3 @@ public final class WeatherGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-

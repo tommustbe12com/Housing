@@ -19,13 +19,13 @@ public final class ItemsGui {
     public void open(Player player, Runnable backToMain) {
         Inventory inv = Bukkit.createInventory(null, 54, TITLE);
         fill(inv);
-        inv.setItem(49, named(Material.NETHER_STAR, "§bMain Menu", List.of("§7Return to main menu.")));
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to main menu.")));
         player.openInventory(inv);
     }
 
     public void handleClick(Player player, ItemStack clicked, Runnable backToMain) {
         if (clicked == null) return;
-        if (clicked.getType() == Material.NETHER_STAR) backToMain.run();
+        if (clicked.getType() == Material.ARROW) backToMain.run();
     }
 
     private static ItemStack named(Material mat, String name, List<String> lore) {
@@ -42,4 +42,3 @@ public final class ItemsGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-

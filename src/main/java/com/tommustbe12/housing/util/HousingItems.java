@@ -56,5 +56,52 @@ public final class HousingItems {
         Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "region_wand"), PersistentDataType.BYTE);
         return b != null && b == (byte) 1;
     }
-}
 
+    public static ItemStack createHubHousesItem(Plugin plugin) {
+        ItemStack item = new ItemStack(Material.OAK_DOOR);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName("§aYour Houses");
+        meta.setLore(List.of("§7Click to open your houses."));
+        meta.getPersistentDataContainer().set(key(plugin, "hub_houses"), PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public static boolean isHubHousesItem(Plugin plugin, ItemStack item) {
+        if (item == null || item.getType() != Material.OAK_DOOR || !item.hasItemMeta()) return false;
+        Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "hub_houses"), PersistentDataType.BYTE);
+        return b != null && b == (byte) 1;
+    }
+
+    public static ItemStack createHubHotItem(Plugin plugin) {
+        ItemStack item = new ItemStack(Material.FIREWORK_STAR);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName("§7Hot Houses");
+        meta.setLore(List.of("§7Click to browse houses."));
+        meta.getPersistentDataContainer().set(key(plugin, "hub_hot"), PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public static boolean isHubHotItem(Plugin plugin, ItemStack item) {
+        if (item == null || item.getType() != Material.FIREWORK_STAR || !item.hasItemMeta()) return false;
+        Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "hub_hot"), PersistentDataType.BYTE);
+        return b != null && b == (byte) 1;
+    }
+
+    public static ItemStack createHubCookiesLeftItem(Plugin plugin, int remaining) {
+        ItemStack item = new ItemStack(Material.COOKIE);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName("§6Cookies Left: §f" + remaining);
+        meta.setLore(List.of("§7You can give §f" + remaining + "§7 cookie(s) this week."));
+        meta.getPersistentDataContainer().set(key(plugin, "hub_cookies_left"), PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public static boolean isHubCookiesLeftItem(Plugin plugin, ItemStack item) {
+        if (item == null || item.getType() != Material.COOKIE || !item.hasItemMeta()) return false;
+        Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "hub_cookies_left"), PersistentDataType.BYTE);
+        return b != null && b == (byte) 1;
+    }
+}

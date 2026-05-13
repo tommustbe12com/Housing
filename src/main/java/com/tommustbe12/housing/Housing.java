@@ -25,6 +25,7 @@ import com.tommustbe12.housing.cookies.CookieService;
 import com.tommustbe12.housing.npcs.NpcManager;
 import com.tommustbe12.housing.gui.NpcsGui;
 import com.tommustbe12.housing.commands.EditCommand;
+import com.tommustbe12.housing.commands.HubCommand;
 import com.tommustbe12.housing.listeners.ItemEditGuiListener;
 import com.tommustbe12.housing.listeners.ItemActionListener;
 import com.tommustbe12.housing.listeners.CustomMenusGuiListener;
@@ -125,9 +126,10 @@ public final class Housing extends JavaPlugin {
         WeatherGui weatherGui = new WeatherGui(this, houseManager, groupsService);
         BiomesSkiesGui biomesSkiesGui = new BiomesSkiesGui(this, houseManager, groupsService);
         ItemsGui itemsGui = new ItemsGui();
+        BlocksGui blocksGui = new BlocksGui(houseManager, groupsService);
         HousePlayersGui housePlayersGui = new HousePlayersGui(houseManager, groupsService, playerSettingsGui);
 
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, groupsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui, weatherGui, biomesSkiesGui, itemsGui, housePlayersGui);
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, groupsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui, weatherGui, biomesSkiesGui, itemsGui, blocksGui, housePlayersGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
         this.cookieService = new CookieService(this, debug, houseManager);
         this.cookieItemListener = new CookieItemListener(this, houseManager, cookieService);
@@ -165,10 +167,18 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CustomMenusGuiListener(customMenusGui), this);
         getServer().getPluginManager().registerEvents(new CustomMenuRuntimeListener(this, debug, customMenusService), this);
 
-        // 24/7 ensure players always have the Housing nether star in slot 9 (index 8)
+        // 24/7 ensure players always have the correct hub/house items.
         getServer().getScheduler().runTaskTimer(this, () -> {
             for (var p : getServer().getOnlinePlayers()) {
-                com.tommustbe12.housing.util.HousingItems.ensureMenuStar(this, p);
+                var info = houseManager.getHouseInfoByWorld(p.getWorld());
+                if (info == null) {
+                    p.getInventory().setItem(0, com.tommustbe12.housing.util.HousingItems.createHubHousesItem(this));
+                    p.getInventory().setItem(1, com.tommustbe12.housing.util.HousingItems.createHubHotItem(this));
+                    int remaining = cookieService == null ? 0 : cookieService.remainingThisWeek(p.getUniqueId());
+                    p.getInventory().setItem(8, com.tommustbe12.housing.util.HousingItems.createHubCookiesLeftItem(this, remaining));
+                } else {
+                    com.tommustbe12.housing.util.HousingItems.ensureMenuStar(this, p);
+                }
             }
         }, 20L, 20L);
 
@@ -185,6 +195,11 @@ public final class Housing extends JavaPlugin {
             getCommand("edit").setExecutor(new EditCommand(itemEditGui));
         } else {
             debug.warn("Command 'edit' not found in plugin.yml");
+        }
+        if (getCommand("hub") != null) {
+            getCommand("hub").setExecutor(new HubCommand(houseManager));
+        } else {
+            debug.warn("Command 'hub' not found in plugin.yml");
         }
 
         if (getCommand("pos1") != null) {

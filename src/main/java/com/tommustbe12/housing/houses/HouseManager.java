@@ -105,11 +105,6 @@ public final class HouseManager {
                 world.setStorm(true);
                 world.setThundering(true);
             }
-            case "SNOW" -> {
-                // Minecraft snow is biome-dependent; treat SNOW as "storm" + set biome to snowy in UI.
-                world.setStorm(true);
-                world.setThundering(false);
-            }
             default -> {
                 world.setStorm(false);
                 world.setThundering(false);
@@ -133,27 +128,15 @@ public final class HouseManager {
         int minZ = -radius;
         int maxZ = radius;
         int y = Math.max(world.getMinHeight(), 0);
-
-        try {
-            // Spigot/Paper 1.21: World#setBiome(int x, int y, int z, Biome)
-            var m = World.class.getMethod("setBiome", int.class, int.class, int.class, Biome.class);
-            for (int x = minX; x <= maxX; x++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    m.invoke(world, x, y, z, biome);
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                try {
+                    world.setBiome(x, y, z, biome);
+                } catch (NoSuchMethodError err) {
+                    world.setBiome(x, z, biome);
+                    return;
                 }
             }
-            return;
-        } catch (Throwable ignored) {
-        }
-        try {
-            // Older fallback: World#setBiome(int x, int z, Biome)
-            var m = World.class.getMethod("setBiome", int.class, int.class, Biome.class);
-            for (int x = minX; x <= maxX; x++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    m.invoke(world, x, z, biome);
-                }
-            }
-        } catch (Throwable ignored) {
         }
     }
 

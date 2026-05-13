@@ -12,51 +12,42 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.List;
 
-public final class HousePlayersGui {
-    private static final String TITLE = "Players Here";
+public final class BlocksGui {
+    private static final String TITLE = "Blocks";
 
     private final HouseManager houses;
     private final HouseGroupsService groups;
-    private final PlayerSettingsGui playerSettings;
 
-    public HousePlayersGui(HouseManager houses, HouseGroupsService groups, PlayerSettingsGui playerSettings) {
+    public BlocksGui(HouseManager houses, HouseGroupsService groups) {
         this.houses = houses;
         this.groups = groups;
-        this.playerSettings = playerSettings;
     }
 
     public boolean isTitle(String title) {
         return TITLE.equals(title);
     }
 
-    public void open(Player viewer, Runnable back) {
-        var info = houses.getHouseInfoByWorld(viewer.getWorld());
+    public void open(Player player, Runnable back) {
+        var info = houses.getHouseInfoByWorld(player.getWorld());
         if (info == null) return;
-        boolean owner = info.owner().equals(viewer.getUniqueId());
-        if (!owner && (groups == null || !groups.has(info.owner(), info.slot(), viewer.getUniqueId(), HousePermission.CHANGE_GROUP))) return;
+        boolean owner = info.owner().equals(player.getUniqueId());
+        if (!owner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.BUILD))) return;
 
         Inventory inv = Bukkit.createInventory(null, 54, TITLE);
         fill(inv);
-
-        int slot = 0;
-        for (Player p : viewer.getWorld().getPlayers()) {
-            if (slot >= 45) break;
-            inv.setItem(slot++, named(Material.PLAYER_HEAD, "§b" + p.getName(), List.of("§7Click to manage.")));
-        }
-
+        inv.setItem(10, named(Material.BARRIER, "§cBarrier", List.of("§7Click to get 64.")));
+        inv.setItem(12, named(Material.STRUCTURE_VOID, "§7Structure Void", List.of("§7Click to get 64.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
-        viewer.openInventory(inv);
+        player.openInventory(inv);
     }
 
-    public void handleClick(Player viewer, int rawSlot, ItemStack clicked, Runnable back) {
+    public void handleClick(Player player, ItemStack clicked, Runnable back) {
         if (clicked == null) return;
         if (clicked.getType() == Material.ARROW) { back.run(); return; }
-        if (rawSlot < 0 || rawSlot >= 45) return;
-        String name = org.bukkit.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
-        if (name == null || name.isBlank()) return;
-        Player target = Bukkit.getPlayerExact(name.trim());
-        if (target == null) return;
-        playerSettings.open(viewer, target, () -> open(viewer, back));
+        if (clicked.getType() == Material.BARRIER || clicked.getType() == Material.STRUCTURE_VOID) {
+            ItemStack give = new ItemStack(clicked.getType(), 64);
+            player.getInventory().addItem(give);
+        }
     }
 
     private static ItemStack named(Material mat, String name, List<String> lore) {
@@ -73,3 +64,4 @@ public final class HousePlayersGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
+

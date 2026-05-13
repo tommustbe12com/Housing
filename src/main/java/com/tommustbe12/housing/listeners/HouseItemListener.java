@@ -55,6 +55,7 @@ public final class HouseItemListener implements Listener {
     private final WeatherGui weatherGui;
     private final BiomesSkiesGui biomesSkiesGui;
     private final ItemsGui itemsGui;
+    private final BlocksGui blocksGui;
     private final HousePlayersGui housePlayersGui;
 
     private final NamespacedKey hotOwnerKey;
@@ -79,6 +80,7 @@ public final class HouseItemListener implements Listener {
             WeatherGui weatherGui,
             BiomesSkiesGui biomesSkiesGui,
             ItemsGui itemsGui,
+            BlocksGui blocksGui,
             HousePlayersGui housePlayersGui
     ) {
         this.plugin = plugin;
@@ -99,6 +101,7 @@ public final class HouseItemListener implements Listener {
         this.weatherGui = weatherGui;
         this.biomesSkiesGui = biomesSkiesGui;
         this.itemsGui = itemsGui;
+        this.blocksGui = blocksGui;
         this.housePlayersGui = housePlayersGui;
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
@@ -109,9 +112,21 @@ public final class HouseItemListener implements Listener {
         if (event.getHand() != EquipmentSlot.HAND) return;
         if (!event.getAction().isRightClick()) return;
         Player player = event.getPlayer();
-        if (!HousingItems.isMenuStar(plugin, player.getInventory().getItemInMainHand())) return;
-        event.setCancelled(true);
-        openMainMenuV2(player);
+        ItemStack hand = player.getInventory().getItemInMainHand();
+        if (HousingItems.isMenuStar(plugin, hand)) {
+            event.setCancelled(true);
+            openMainMenuV2(player);
+            return;
+        }
+        if (HousingItems.isHubHousesItem(plugin, hand)) {
+            event.setCancelled(true);
+            openHousesMenu(player);
+            return;
+        }
+        if (HousingItems.isHubHotItem(plugin, hand)) {
+            event.setCancelled(true);
+            openHotMenu(player);
+        }
     }
 
     public void giveMenuItem(Player player) {
@@ -132,6 +147,7 @@ public final class HouseItemListener implements Listener {
                 || (weatherGui != null && weatherGui.isTitle(title))
                 || (biomesSkiesGui != null && biomesSkiesGui.isTitle(title))
                 || (itemsGui != null && itemsGui.isTitle(title))
+                || (blocksGui != null && blocksGui.isTitle(title))
                 || (housePlayersGui != null && housePlayersGui.isTitle(title))
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)
@@ -299,6 +315,10 @@ public final class HouseItemListener implements Listener {
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.CHANGE_SETTINGS))) return;
                 biomesSkiesGui.open(player, () -> openMainMenuV2(player));
             }
+            if (clicked.getType() == Material.BRICKS && blocksGui != null) {
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.BUILD))) return;
+                blocksGui.open(player, () -> openMainMenuV2(player));
+            }
             return;
         }
 
@@ -312,6 +332,10 @@ public final class HouseItemListener implements Listener {
         }
         if (itemsGui != null && itemsGui.isTitle(title)) {
             itemsGui.handleClick(player, clicked, () -> openMainMenuV2(player));
+            return;
+        }
+        if (blocksGui != null && blocksGui.isTitle(title)) {
+            blocksGui.handleClick(player, clicked, () -> openMainMenuV2(player));
             return;
         }
         if (housePlayersGui != null && housePlayersGui.isTitle(title)) {
@@ -563,6 +587,7 @@ public final class HouseItemListener implements Listener {
                 || (weatherGui != null && weatherGui.isTitle(title))
                 || (biomesSkiesGui != null && biomesSkiesGui.isTitle(title))
                 || (itemsGui != null && itemsGui.isTitle(title))
+                || (blocksGui != null && blocksGui.isTitle(title))
                 || (housePlayersGui != null && housePlayersGui.isTitle(title))
                 || title.startsWith(TITLE_ICON_PICKER)
                 || title.startsWith(TITLE_DELETE_CONFIRM)
@@ -631,15 +656,38 @@ public final class HouseItemListener implements Listener {
             return;
         }
 
-        inv.setItem(0, named(Material.STICK, "§ePro Tools", List.of("§7Coming soon.")));
-        inv.setItem(2, named(Material.BRICKS, "§aBlocks", List.of("§7Coming soon.")));
-        inv.setItem(4, named(Material.SKELETON_SKULL, "§fSkulls", List.of("§7Coming soon.")));
-        inv.setItem(6, named(Material.EMERALD, "§aItems", List.of("§7Open items menu.")));
+        boolean canBuild = inOwn || (groups != null && groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.BUILD));
+        boolean canSettings = inOwn || (groups != null && groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.CHANGE_SETTINGS));
+        boolean canGroups = inOwn || (groups != null && groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.CHANGE_GROUP));
+        boolean canSystems = inOwn;
+        if (!inOwn && groups != null) {
+            canSystems = groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_ACTIONS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_EVENT_ACTIONS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_SCOREBOARD)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_COMMANDS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_FUNCTIONS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_INVENTORY_LAYOUTS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_CUSTOM_MENUS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.USE_NPCS)
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_REGIONS);
+        }
 
-        inv.setItem(12, named(Material.CLOCK, "§bWeather", List.of("§7Change house weather.")));
-        inv.setItem(14, named(Material.GRASS_BLOCK, "§aBiomes & Skies", List.of("§7Change biome/sky.")));
+        // Only show "op-ish" build tools if they have permissions.
+        if (canBuild) {
+            inv.setItem(0, named(Material.STICK, "§ePro Tools", List.of("§7Coming soon.")));
+            inv.setItem(2, named(Material.BRICKS, "§aBlocks", List.of("§7Special building blocks.")));
+            inv.setItem(4, named(Material.SKELETON_SKULL, "§fSkulls", List.of("§7Coming soon.")));
+            inv.setItem(6, named(Material.EMERALD, "§aItems", List.of("§7Open items menu.")));
+        }
 
-        inv.setItem(30, named(Material.POWERED_RAIL, "§bSystems", List.of("§7Customize your house.")));
+        if (canSettings) {
+            inv.setItem(12, named(Material.CLOCK, "§bWeather", List.of("§7Change house weather.")));
+            inv.setItem(14, named(Material.GRASS_BLOCK, "§aBiomes & Skies", List.of("§7Change biome/sky.")));
+        }
+
+        if (canSystems) {
+            inv.setItem(31, named(Material.POWERED_RAIL, "§bSystems", List.of("§7Customize your house.")));
+        }
         if (inOwn) {
             boolean buildMode = player.getGameMode() == org.bukkit.GameMode.CREATIVE;
             inv.setItem(35, named(buildMode ? Material.STONE_PICKAXE : Material.PUFFERFISH,
@@ -648,9 +696,9 @@ public final class HouseItemListener implements Listener {
         }
 
         inv.setItem(36, named(Material.SPRUCE_DOOR, "§aTravel to someone else's house", List.of("§7Opens Hot Houses.")));
-        inv.setItem(39, named(Material.COMPARATOR, "§eHouse Settings", List.of("§7Edit house settings.")));
-        inv.setItem(41, named(Material.FILLED_MAP, "§bPermissions & Groups", List.of("§7Edit groups and permissions.")));
-        inv.setItem(42, named(Material.WRITABLE_BOOK, "§fPlayers Here", List.of("§7Manage players currently in this house.")));
+        if (canSettings) inv.setItem(30, named(Material.COMPARATOR, "§eHouse Settings", List.of("§7Edit house settings.")));
+        if (canGroups) inv.setItem(32, named(Material.FILLED_MAP, "§bPermissions & Groups", List.of("§7Edit groups and permissions.")));
+        if (canGroups) inv.setItem(37, named(Material.WRITABLE_BOOK, "§fPlayers Here", List.of("§7Manage players currently in this house.")));
         inv.setItem(43, named(Material.CAULDRON, "§7Clear Inventory", List.of("§7Clears your inventory.")));
         inv.setItem(44, named(Material.JUKEBOX, "§dJukebox", List.of("§7Coming soon.")));
 

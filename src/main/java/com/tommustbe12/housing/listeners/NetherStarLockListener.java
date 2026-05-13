@@ -23,37 +23,53 @@ public final class NetherStarLockListener implements Listener {
         ItemStack current = event.getCurrentItem();
         ItemStack cursor = event.getCursor();
 
-        // block moving/removing the menu star from slot 8
-        if (event.getRawSlot() == 8) {
+        // Hub items lock (0,1,8)
+        if (event.getRawSlot() == 0 && HousingItems.isHubHousesItem(plugin, current)) { event.setCancelled(true); return; }
+        if (event.getRawSlot() == 1 && HousingItems.isHubHotItem(plugin, current)) { event.setCancelled(true); return; }
+        if (event.getRawSlot() == 8 && HousingItems.isHubCookiesLeftItem(plugin, current)) { event.setCancelled(true); return; }
+
+        // House menu star lock (slot 8)
+        if (event.getRawSlot() == 8 && HousingItems.isMenuStar(plugin, current)) {
             event.setCancelled(true);
             HousingItems.ensureMenuStar(plugin, player);
             return;
         }
 
-        // block placing the menu star into any other slot
-        if (HousingItems.isMenuStar(plugin, cursor) || HousingItems.isMenuStar(plugin, current)) {
-            if (event.getRawSlot() != 8) {
-                event.setCancelled(true);
-                HousingItems.ensureMenuStar(plugin, player);
-            }
+        // block placing locked items into other slots
+        boolean locked = HousingItems.isMenuStar(plugin, cursor)
+                || HousingItems.isHubHousesItem(plugin, cursor)
+                || HousingItems.isHubHotItem(plugin, cursor)
+                || HousingItems.isHubCookiesLeftItem(plugin, cursor)
+                || HousingItems.isMenuStar(plugin, current)
+                || HousingItems.isHubHousesItem(plugin, current)
+                || HousingItems.isHubHotItem(plugin, current)
+                || HousingItems.isHubCookiesLeftItem(plugin, current);
+        if (locked) {
+            int rawSlot = event.getRawSlot();
+            boolean ok = (rawSlot == 8 && HousingItems.isMenuStar(plugin, current))
+                    || (rawSlot == 0 && HousingItems.isHubHousesItem(plugin, current))
+                    || (rawSlot == 1 && HousingItems.isHubHotItem(plugin, current))
+                    || (rawSlot == 8 && HousingItems.isHubCookiesLeftItem(plugin, current));
+            if (!ok) event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (event.getRawSlots().contains(8)) {
+        if (event.getRawSlots().contains(8) || event.getRawSlots().contains(0) || event.getRawSlots().contains(1)) {
             event.setCancelled(true);
-            HousingItems.ensureMenuStar(plugin, player);
         }
     }
 
     @EventHandler
     public void onDrop(PlayerDropItemEvent event) {
-        if (HousingItems.isMenuStar(plugin, event.getItemDrop().getItemStack())) {
+        ItemStack it = event.getItemDrop().getItemStack();
+        if (HousingItems.isMenuStar(plugin, it)
+                || HousingItems.isHubHousesItem(plugin, it)
+                || HousingItems.isHubHotItem(plugin, it)
+                || HousingItems.isHubCookiesLeftItem(plugin, it)) {
             event.setCancelled(true);
-            HousingItems.ensureMenuStar(plugin, event.getPlayer());
         }
     }
 }
-

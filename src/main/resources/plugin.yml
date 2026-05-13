@@ -8,6 +8,9 @@ website: https://tommustbe12.com/
 softdepend: [Citizens]
 
 commands:
+  hub:
+    description: Return to hub
+    usage: /hub
   house:
     description: Housing main command
     usage: /house
