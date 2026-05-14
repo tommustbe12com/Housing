@@ -173,7 +173,8 @@ public final class HouseItemListener implements Listener {
         if (title != null && (title.startsWith("Edit Layout: ") || "NPC Equipment".equals(title))) {
             int raw = event.getRawSlot();
             if (title.startsWith("Edit Layout: ")) {
-                if (raw == 8) event.setCancelled(true);
+                // Hotbar slot 8 (reserved for Housing menu star) is editor slot 35 (bottom-right).
+                if (raw == 35) event.setCancelled(true);
                 if (raw == 49 || raw == 52 || raw == 53) event.setCancelled(true);
             } else {
                 int topSize = event.getView().getTopInventory().getSize();

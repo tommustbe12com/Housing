@@ -7,6 +7,7 @@ import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.houses.HouseSlot;
 import com.tommustbe12.housing.inventorylayouts.InventoryLayout;
 import com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService;
+import com.tommustbe12.housing.util.HousingItems;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -210,6 +211,9 @@ public final class InventoryLayoutsGui {
             }
         }
 
+        // Hotbar slot 8 is reserved for the Housing menu item; show it and don't allow editing it.
+        inv.setItem(35, HousingItems.createMenuStar(plugin));
+
         ItemStack pane = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 36; i <= 44; i++) inv.setItem(i, pane);
 
@@ -236,6 +240,8 @@ public final class InventoryLayoutsGui {
         ItemStack[] contents = new ItemStack[36];
         for (int i = 0; i <= 26; i++) contents[i + 9] = inv.getItem(i);
         for (int i = 27; i <= 35; i++) contents[i - 27] = inv.getItem(i);
+        // Reserve hotbar slot 8 for the Housing menu star.
+        contents[8] = HousingItems.createMenuStar(plugin);
         l.setContents(contents);
 
         l.setHelmet(inv.getItem(45));
