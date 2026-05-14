@@ -23,11 +23,10 @@ public final class ChangeTeamAction implements Action {
     }
 
     @Override
-    public void run(ActionContext ctx) {
+    public void execute(ActionContext ctx) {
         if (ctx == null || teams == null) return;
         var target = ctx.other() != null ? ctx.other() : ctx.player();
         if (target == null) return;
         teams.setPlayerTeam(ctx.houseOwner(), ctx.houseSlot(), target.getUniqueId(), teamId);
     }
 }
-
