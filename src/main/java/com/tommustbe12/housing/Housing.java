@@ -10,6 +10,7 @@ import com.tommustbe12.housing.listeners.ChatFormatListener;
 import com.tommustbe12.housing.listeners.HouseItemListener;
 import com.tommustbe12.housing.listeners.HouseRespawnListener;
 import com.tommustbe12.housing.listeners.ChatPromptListener;
+import com.tommustbe12.housing.listeners.FriendlyFireListener;
 import com.tommustbe12.housing.scoreboard.HouseScoreboardService;
 import com.tommustbe12.housing.cookies.CookieItemListener;
 import com.tommustbe12.housing.cookies.CookieService;
@@ -39,6 +40,7 @@ import com.tommustbe12.housing.regions.RegionSelectionService;
 import com.tommustbe12.housing.regions.RegionSelectionVisualizer;
 import com.tommustbe12.housing.regions.RegionWandListener;
 import com.tommustbe12.housing.regions.RegionsService;
+import com.tommustbe12.housing.teams.TeamsService;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Housing extends JavaPlugin {
@@ -68,6 +70,8 @@ public final class Housing extends JavaPlugin {
     private HouseGroupsService groupsService;
     private PlayerSettingsGui playerSettingsGui;
     private BannedPlayersGui bannedPlayersGui;
+    private TeamsService teamsService;
+    private TeamsGui teamsGui;
 
     @Override
     public void onEnable() {
@@ -77,6 +81,7 @@ public final class Housing extends JavaPlugin {
         this.houseManager = new HouseManager(this, debug);
         this.ownerTagService = new OwnerTagService(this, debug);
         this.groupsService = new HouseGroupsService(this, houseManager);
+        this.teamsService = new TeamsService(this);
 
         this.chatPrompts = new com.tommustbe12.housing.chat.ChatPrompts();
         this.actionsService = new HouseActionsService(this, debug, houseManager);
@@ -87,6 +92,7 @@ public final class Housing extends JavaPlugin {
         this.scoreboardEditorGui = new ScoreboardEditorGui(this, chatPrompts, houseManager, scoreboardService, groupsService);
         this.commandsGui = new CommandsGui(this, debug, chatPrompts, actionsEditor, houseManager, groupsService);
         this.groupsGui = new GroupsGui(this, chatPrompts, houseManager, groupsService);
+        this.teamsGui = new TeamsGui(this, chatPrompts, houseManager, teamsService);
         this.houseSettingsGui = new HouseSettingsGui(this, chatPrompts, houseManager, groupsGui, groupsService);
         this.playerSettingsGui = new PlayerSettingsGui(this, chatPrompts, houseManager, groupsService, ownerTagService);
         this.inventoryLayoutsGui = new InventoryLayoutsGui(this, chatPrompts, houseManager, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(this), groupsService);
@@ -112,7 +118,7 @@ public final class Housing extends JavaPlugin {
         BlocksGui blocksGui = new BlocksGui(houseManager, groupsService);
         HousePlayersGui housePlayersGui = new HousePlayersGui(houseManager, groupsService, playerSettingsGui);
 
-        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, groupsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui, weatherGui, biomesSkiesGui, itemsGui, blocksGui, housePlayersGui);
+        HouseItemListener houseItemListener = new HouseItemListener(this, debug, houseManager, actionsEditor, functionsGui, conditionalGui, scoreboardEditorGui, commandsGui, houseSettingsGui, groupsGui, inventoryLayoutsGui, customMenusGui, npcsGui, groupsService, regionsGui, weatherGui, biomesSkiesGui, itemsGui, blocksGui, housePlayersGui, teamsGui);
         this.inventoryService = new InventoryService(this, debug, houseItemListener);
         this.cookieService = new CookieService(this, debug, houseManager);
         this.cookieItemListener = new CookieItemListener(this, houseManager, cookieService);
@@ -120,8 +126,9 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(houseItemListener, this);
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(debug, houseItemListener, houseManager, ownerTagService, npcManager), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(debug), this);
-        getServer().getPluginManager().registerEvents(new HouseWorldLifecycleListener(this, debug, houseManager, ownerTagService, inventoryService, actionsService, scoreboardService, groupsService), this);
-        getServer().getPluginManager().registerEvents(new ChatFormatListener(this, houseManager, groupsService), this);
+        getServer().getPluginManager().registerEvents(new HouseWorldLifecycleListener(this, debug, houseManager, ownerTagService, inventoryService, actionsService, scoreboardService, groupsService, teamsService), this);
+        getServer().getPluginManager().registerEvents(new ChatFormatListener(this, houseManager, groupsService, teamsService), this);
+        getServer().getPluginManager().registerEvents(new FriendlyFireListener(houseManager, teamsService), this);
         getServer().getPluginManager().registerEvents(new HouseVisibilityListener(this, houseManager), this);
         getServer().getPluginManager().registerEvents(new HouseVerticalBorderListener(this, houseManager), this);
         getServer().getPluginManager().registerEvents(new HousePermissionEnforcementListener(houseManager, groupsService), this);

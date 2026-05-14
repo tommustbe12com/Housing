@@ -32,7 +32,8 @@ public final class RegionsService {
         Placeholders placeholders = new Placeholders(variables);
         this.codec = new SimpleActionCodec(placeholders, variables, houses, (ctx, fn, global) -> {},
                 new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin),
-                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses));
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses),
+                new com.tommustbe12.housing.teams.TeamsService(plugin));
     }
 
     public SimpleActionCodec codec() { return codec; }
@@ -154,4 +155,3 @@ public final class RegionsService {
         return owner + ":" + slot.index();
     }
 }
-

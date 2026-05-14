@@ -6,6 +6,7 @@ import com.tommustbe12.housing.actions.impl.ApplyInventoryLayoutAction;
 import com.tommustbe12.housing.actions.impl.OpenCustomMenuAction;
 import com.tommustbe12.housing.actions.impl.PlaySoundAction;
 import com.tommustbe12.housing.actions.impl.ChangeVariableAction;
+import com.tommustbe12.housing.actions.impl.ChangeTeamAction;
 import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.RunFunctionAction;
 import com.tommustbe12.housing.actions.impl.ConditionalAction;
@@ -55,6 +56,8 @@ public final class SimpleActionSerializer implements ActionSerializer {
             out.put("pitch", sound.pitch());
         } else if (action instanceof OpenCustomMenuAction menu) {
             out.put("menuId", menu.menuId() == null ? "" : menu.menuId().toString());
+        } else if (action instanceof ChangeTeamAction team) {
+            out.put("teamId", team.teamId() == null ? "" : team.teamId().toString());
         } else if (action instanceof ConditionalAction cond) {
             out.put("matchAny", cond.matchAny());
             out.put("conditions", cond.conditions().stream().map(SimpleActionSerializer::serializeCondition).toList());

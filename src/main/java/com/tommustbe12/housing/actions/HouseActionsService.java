@@ -35,7 +35,8 @@ public final class HouseActionsService {
         Placeholders placeholders = new Placeholders(variables);
         this.codec = new SimpleActionCodec(placeholders, variables, houses, this::runFunction,
                 new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin),
-                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses));
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses),
+                new com.tommustbe12.housing.teams.TeamsService(plugin));
     }
 
     public void runEvent(UUID owner, HouseSlot slot, World world, Player player, String eventKey) {

@@ -57,6 +57,7 @@ public final class HouseItemListener implements Listener {
     private final ItemsGui itemsGui;
     private final BlocksGui blocksGui;
     private final HousePlayersGui housePlayersGui;
+    private final TeamsGui teamsGui;
 
     private final NamespacedKey hotOwnerKey;
     private final NamespacedKey hotSlotKey;
@@ -81,7 +82,8 @@ public final class HouseItemListener implements Listener {
             BiomesSkiesGui biomesSkiesGui,
             ItemsGui itemsGui,
             BlocksGui blocksGui,
-            HousePlayersGui housePlayersGui
+            HousePlayersGui housePlayersGui,
+            TeamsGui teamsGui
     ) {
         this.plugin = plugin;
         this.debug = debug;
@@ -103,6 +105,7 @@ public final class HouseItemListener implements Listener {
         this.itemsGui = itemsGui;
         this.blocksGui = blocksGui;
         this.housePlayersGui = housePlayersGui;
+        this.teamsGui = teamsGui;
         this.hotOwnerKey = new NamespacedKey(plugin, "hot_owner");
         this.hotSlotKey = new NamespacedKey(plugin, "hot_slot");
     }
@@ -165,6 +168,7 @@ public final class HouseItemListener implements Listener {
                 || (commandsGui != null && commandsGui.isTitle(title))
                 || (houseSettingsGui != null && houseSettingsGui.isTitle(title))
                 || (inventoryLayoutsGui != null && inventoryLayoutsGui.isTitle(title))
+                || (teamsGui != null && teamsGui.isTitle(title))
                 || (npcsGui != null && npcsGui.isTitle(title));
 
         if (!ours) return;
@@ -207,6 +211,10 @@ public final class HouseItemListener implements Listener {
             actionsEditor.handleLayoutPickerClick(player, clicked);
             return;
         }
+        if (actionsEditor.isTeamPickerTitle(title)) {
+            actionsEditor.handleTeamPickerClick(player, clicked);
+            return;
+        }
         if (actionsEditor.isMenuPickerTitle(title)) {
             actionsEditor.handleMenuPickerClick(player, clicked);
             return;
@@ -237,6 +245,10 @@ public final class HouseItemListener implements Listener {
         }
         if (inventoryLayoutsGui != null && inventoryLayoutsGui.isTitle(title)) {
             inventoryLayoutsGui.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openSystemsMenu(player), () -> openSystemsMenu(player));
+            return;
+        }
+        if (teamsGui != null && teamsGui.isTitle(title)) {
+            teamsGui.handleClick(player, title, event.getRawSlot(), clicked, event.getClick(), () -> openSystemsMenu(player));
             return;
         }
         if (npcsGui != null && npcsGui.isTitle(title)) {
@@ -462,6 +474,12 @@ public final class HouseItemListener implements Listener {
             var info = houses.getHouseInfoByWorld(player.getWorld());
             boolean inOwn = info != null && info.owner().equals(player.getUniqueId());
             if (clicked.getType() == Material.REDSTONE) { openEventActionsMenu(player); return; }
+            if (clicked.getType() == Material.WHITE_BANNER && teamsGui != null) {
+                if (info == null) return;
+                if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_TEAMS))) return;
+                teamsGui.open(player, () -> openSystemsMenu(player));
+                return;
+            }
             if (clicked.getType() == Material.MAP && regionsGui != null) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_REGIONS))) return;
@@ -711,7 +729,7 @@ public final class HouseItemListener implements Listener {
         ItemStack border = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, border);
 
-        int[] clear = new int[]{10,12,14,16,20,22,24,26};
+        int[] clear = new int[]{10,12,14,16,20,22,24,26,28};
         for (int idx : clear) inv.setItem(idx, null);
 
         inv.setItem(10, named(Material.REDSTONE, "§eEvent Actions", List.of("§7Configure triggers.")));
@@ -722,6 +740,7 @@ public final class HouseItemListener implements Listener {
         inv.setItem(22, named(Material.ITEM_FRAME, "§aCustom Menus", List.of("§7Create clickable GUIs.")));
         inv.setItem(24, named(Material.ARMOR_STAND, "§eNPCs", List.of("§7Create and edit NPCs.")));
         inv.setItem(26, named(Material.MAP, "§aRegions", List.of("§7WorldEdit-style regions.")));
+        inv.setItem(28, named(Material.WHITE_BANNER, "§bTeams", List.of("§7Create and edit teams.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to main menu.")));
         player.openInventory(inv);
     }

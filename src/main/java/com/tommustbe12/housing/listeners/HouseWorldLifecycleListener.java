@@ -6,6 +6,7 @@ import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.inventory.InventoryService;
 import com.tommustbe12.housing.tags.OwnerTagService;
 import com.tommustbe12.housing.groups.HouseGroupsService;
+import com.tommustbe12.housing.teams.TeamsService;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
@@ -25,8 +26,9 @@ public final class HouseWorldLifecycleListener implements Listener {
     private final HouseActionsService actions;
     private final com.tommustbe12.housing.scoreboard.HouseScoreboardService scoreboards;
     private final HouseGroupsService groups;
+    private final TeamsService teams;
 
-    public HouseWorldLifecycleListener(Plugin plugin, Debug debug, HouseManager houses, OwnerTagService ownerTags, InventoryService inventories, HouseActionsService actions, com.tommustbe12.housing.scoreboard.HouseScoreboardService scoreboards, HouseGroupsService groups) {
+    public HouseWorldLifecycleListener(Plugin plugin, Debug debug, HouseManager houses, OwnerTagService ownerTags, InventoryService inventories, HouseActionsService actions, com.tommustbe12.housing.scoreboard.HouseScoreboardService scoreboards, HouseGroupsService groups, TeamsService teams) {
         this.plugin = plugin;
         this.debug = debug;
         this.houses = houses;
@@ -35,6 +37,7 @@ public final class HouseWorldLifecycleListener implements Listener {
         this.actions = actions;
         this.scoreboards = scoreboards;
         this.groups = groups;
+        this.teams = teams;
     }
 
     @EventHandler
@@ -82,8 +85,11 @@ public final class HouseWorldLifecycleListener implements Listener {
     private void refreshWorldTags(World world, UUID owner, com.tommustbe12.housing.houses.HouseSlot slot) {
         if (world == null) return;
         for (var p : world.getPlayers()) {
-            String tag = groups == null ? "" : groups.tagForDisplay(owner, slot, p.getUniqueId());
-            ownerTags.applyTag(p, tag);
+            String groupTag = groups == null ? "" : groups.tagForDisplay(owner, slot, p.getUniqueId());
+            String teamTag = teams == null ? "" : teams.tagForDisplay(owner, slot, p.getUniqueId());
+            String combined = (teamTag == null ? "" : teamTag.trim()) + (groupTag == null ? "" : (" " + groupTag.trim()));
+            combined = combined.trim();
+            ownerTags.applyTag(p, combined);
         }
     }
 

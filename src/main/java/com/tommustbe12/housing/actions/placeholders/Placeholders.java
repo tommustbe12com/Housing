@@ -26,6 +26,13 @@ public final class Placeholders {
             out = out.replace("%other.uuid%", ctx.other().getUniqueId().toString());
         }
 
+        // Team placeholders (player only): %team.name% %team.tag% %team.color%
+        if (ctx.player() != null) {
+            out = out.replace("%team.name%", resolveTeamStat(ctx, ctx.player().getUniqueId(), "name"));
+            out = out.replace("%team.tag%", resolveTeamStat(ctx, ctx.player().getUniqueId(), "tag"));
+            out = out.replace("%team.color%", resolveTeamStat(ctx, ctx.player().getUniqueId(), "color"));
+        }
+
         // %stat.key% or %stats.key%
         int guard = 0;
         while (guard++ < 100) {
@@ -69,6 +76,24 @@ public final class Placeholders {
                 return Integer.toString(count);
             }
             if ("house".equalsIgnoreCase(key)) return yaml.getString("name", "");
+            return "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static String resolveTeamStat(ActionContext ctx, UUID playerId, String key) {
+        try {
+            File dir = new File(ctx.plugin().getDataFolder(), "teams");
+            File file = new File(dir, ctx.houseOwner() + "-" + ctx.houseSlot().index() + ".yml");
+            if (!file.exists()) return "";
+            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+            String teamId = yaml.getString("players." + playerId, "");
+            if (teamId == null || teamId.isBlank()) return "";
+            String base = "teams." + teamId + ".";
+            if ("name".equalsIgnoreCase(key)) return yaml.getString(base + "name", "");
+            if ("tag".equalsIgnoreCase(key)) return yaml.getString(base + "tag", "");
+            if ("color".equalsIgnoreCase(key)) return yaml.getString(base + "color", "");
             return "";
         } catch (Exception e) {
             return "";

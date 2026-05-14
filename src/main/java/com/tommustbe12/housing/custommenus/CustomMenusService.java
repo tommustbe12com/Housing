@@ -28,7 +28,8 @@ public final class CustomMenusService {
         Placeholders ph = new Placeholders(vars);
         this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {},
                 new InventoryLayoutsService(plugin),
-                this);
+                this,
+                new com.tommustbe12.housing.teams.TeamsService(plugin));
     }
 
     public List<CustomMenu> get(UUID owner, HouseSlot slot) {

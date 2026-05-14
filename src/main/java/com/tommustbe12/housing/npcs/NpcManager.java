@@ -54,7 +54,8 @@ public final class NpcManager {
         Placeholders ph = new Placeholders(vars);
         this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {},
                 new InventoryLayoutsService(plugin),
-                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses));
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses),
+                new com.tommustbe12.housing.teams.TeamsService(plugin));
 
         this.citizensAvailable = plugin.getServer().getPluginManager().isPluginEnabled("Citizens");
     }

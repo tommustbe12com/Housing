@@ -2,6 +2,7 @@ package com.tommustbe12.housing.listeners;
 
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.groups.HouseGroupsService;
+import com.tommustbe12.housing.teams.TeamsService;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
@@ -13,11 +14,13 @@ public final class ChatFormatListener implements Listener {
     private final Plugin plugin;
     private final HouseManager houses;
     private final HouseGroupsService groups;
+    private final TeamsService teams;
 
-    public ChatFormatListener(Plugin plugin, HouseManager houses, HouseGroupsService groups) {
+    public ChatFormatListener(Plugin plugin, HouseManager houses, HouseGroupsService groups, TeamsService teams) {
         this.plugin = plugin;
         this.houses = houses;
         this.groups = groups;
+        this.teams = teams;
     }
 
     @EventHandler
@@ -44,8 +47,11 @@ public final class ChatFormatListener implements Listener {
             return;
         }
 
-        String tag = groups.tagForDisplay(info.owner(), info.slot(), player.getUniqueId());
-        event.setFormat(tag + " §f" + player.getName() + "§7: §f" + event.getMessage());
+        String groupTag = groups.tagForDisplay(info.owner(), info.slot(), player.getUniqueId());
+        String teamTag = teams == null ? "" : teams.tagForDisplay(info.owner(), info.slot(), player.getUniqueId());
+        String combined = (teamTag == null ? "" : teamTag.trim()) + (groupTag == null ? "" : (" " + groupTag.trim()));
+        combined = combined.trim();
+        event.setFormat((combined.isBlank() ? "" : (combined + " ")) + "§f" + player.getName() + "§7: §f" + event.getMessage());
     }
 
     private World resolveHubWorld() {

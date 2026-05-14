@@ -35,6 +35,7 @@ public final class ActionsEditor {
     private static final String TITLE_PICK_FUNCTION = "Choose Function";
     private static final String TITLE_PICK_LAYOUT = "Choose Layout";
     private static final String TITLE_PICK_MENU = "Choose Custom Menu";
+    private static final String TITLE_PICK_TEAM = "Choose Team";
     private static final String TITLE_CHANGE_VARIABLE = "Edit Stat Change";
     private static final String TITLE_PLAY_SOUND = "Play Sound";
     private static final String TITLE_SOUNDS = "Sounds";
@@ -89,6 +90,10 @@ public final class ActionsEditor {
 
     public boolean isLayoutPickerTitle(String title) {
         return TITLE_PICK_LAYOUT.equals(title);
+    }
+
+    public boolean isTeamPickerTitle(String title) {
+        return TITLE_PICK_TEAM.equals(title);
     }
 
     public boolean isMenuPickerTitle(String title) {
@@ -228,6 +233,7 @@ public final class ActionsEditor {
             });
             case REPEATER -> openFunctionPicker(player);
             case CHEST -> openLayoutPicker(player);
+            case WHITE_BANNER -> openTeamPicker(player);
             case ITEM_FRAME -> {
                 list.actions().add(new OpenCustomMenuAction(new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), null));
                 session.replaceIndex = list.actions().size() - 1;
@@ -302,6 +308,29 @@ public final class ActionsEditor {
         openList(player, session);
     }
 
+    public void handleTeamPickerClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) {
+            openAddPicker(player);
+            return;
+        }
+        if (clicked.getType() != Material.WHITE_BANNER) return;
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getDisplayName() == null) return;
+        String pickedName = stripColor(meta.getDisplayName());
+        com.tommustbe12.housing.teams.TeamsService teams = new com.tommustbe12.housing.teams.TeamsService(plugin);
+        com.tommustbe12.housing.teams.HouseTeam picked = null;
+        for (com.tommustbe12.housing.teams.HouseTeam t : teams.list(session.owner, session.slot)) {
+            if (t != null && t.name().equalsIgnoreCase(pickedName)) { picked = t; break; }
+        }
+        if (picked == null) return;
+        session.list().actions().add(new ChangeTeamAction(teams, picked.id()));
+        save(session);
+        openList(player, session);
+    }
+
     public void handleMenuPickerClick(Player player, ItemStack clicked) {
         Session session = sessions.get(player.getUniqueId());
         if (session == null) return;
@@ -355,6 +384,7 @@ public final class ActionsEditor {
         inv.setItem(23, named(Material.REPEATER, "§fRun Function", List.of("§7Pick a function.")));
         inv.setItem(24, named(Material.STRUCTURE_BLOCK, "§eConditional", List.of("§7GUI-based if/else.")));
         inv.setItem(25, named(Material.CHEST, "§6Apply Inventory Layout", List.of("§7Pick a saved layout.")));
+        inv.setItem(26, named(Material.WHITE_BANNER, "§bChange Team", List.of("§7Pick a team for the player.")));
         inv.setItem(28, named(Material.ITEM_FRAME, "§aOpen Custom Menu", List.of("§7Pick a custom GUI menu.")));
         inv.setItem(29, named(Material.NOTE_BLOCK, "§aPlay Sound", List.of("§7Configure sound/volume/pitch.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
@@ -373,6 +403,26 @@ public final class ActionsEditor {
         int i = 0;
         for (com.tommustbe12.housing.inventorylayouts.InventoryLayout l : inventoryLayouts.get(session.owner, session.slot)) {
             inv.setItem(i++, named(Material.CHEST, "§e" + l.name(), List.of("§7Click to select")));
+            if (i >= 45) break;
+        }
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private void openTeamPicker(Player player) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (session.owner.getMostSignificantBits() == 0L && session.owner.getLeastSignificantBits() == 0L) {
+            player.sendMessage("§cTeams require a house context.");
+            return;
+        }
+        com.tommustbe12.housing.teams.TeamsService teams = new com.tommustbe12.housing.teams.TeamsService(plugin);
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_TEAM);
+        fill(inv);
+        int i = 0;
+        for (com.tommustbe12.housing.teams.HouseTeam t : teams.list(session.owner, session.slot)) {
+            if (t == null) continue;
+            inv.setItem(i++, named(Material.WHITE_BANNER, "§b" + t.name(), List.of("§7Click to select")));
             if (i >= 45) break;
         }
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
@@ -800,7 +850,7 @@ public final class ActionsEditor {
 
     private SimpleActionCodec newCodec() {
         return new SimpleActionCodec(placeholders, variables, houses, (ctx, fn, global) -> {}, inventoryLayouts,
-                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses));
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), new com.tommustbe12.housing.teams.TeamsService(plugin));
     }
 
     private void prompt(Player player, String question, Consumer<String> onOk) {
@@ -828,6 +878,7 @@ public final class ActionsEditor {
             case "apply_inventory_layout" -> Material.CHEST;
             case "open_custom_menu" -> Material.ITEM_FRAME;
             case "play_sound" -> Material.NOTE_BLOCK;
+            case "change_team" -> Material.WHITE_BANNER;
             default -> Material.BOOK;
         };
         List<String> lore = new ArrayList<>();
@@ -870,6 +921,9 @@ public final class ActionsEditor {
         } else if (action instanceof PlaySoundAction s) {
             lore.add("§7sound: §f" + s.sound());
             lore.add("§7vol: §f" + s.volume() + " §7pitch: §f" + s.pitch());
+        }
+        if (action instanceof ChangeTeamAction t) {
+            lore.add("Â§7teamId: Â§f" + (t.teamId() == null ? "" : t.teamId().toString()));
         }
         return lore;
     }

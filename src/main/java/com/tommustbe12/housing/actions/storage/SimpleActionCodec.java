@@ -17,6 +17,7 @@ import com.tommustbe12.housing.actions.impl.ConditionalAction;
 import com.tommustbe12.housing.actions.impl.ApplyInventoryLayoutAction;
 import com.tommustbe12.housing.actions.impl.OpenCustomMenuAction;
 import com.tommustbe12.housing.actions.impl.PlaySoundAction;
+import com.tommustbe12.housing.actions.impl.ChangeTeamAction;
 import com.tommustbe12.housing.actions.ActionList;
 import com.tommustbe12.housing.actions.conditions.*;
 import com.tommustbe12.housing.util.ItemStackSerialization;
@@ -25,6 +26,7 @@ import com.tommustbe12.housing.actions.placeholders.VariablesStore;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService;
 import com.tommustbe12.housing.custommenus.CustomMenusService;
+import com.tommustbe12.housing.teams.TeamsService;
 
 import java.util.Map;
 import java.util.UUID;
@@ -36,14 +38,16 @@ public final class SimpleActionCodec implements ActionCodec {
     private final RunFunctionAction.FunctionRunner functionRunner;
     private final InventoryLayoutsService inventoryLayouts;
     private final CustomMenusService customMenus;
+    private final TeamsService teams;
 
-    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner, InventoryLayoutsService inventoryLayouts, CustomMenusService customMenus) {
+    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner, InventoryLayoutsService inventoryLayouts, CustomMenusService customMenus, TeamsService teams) {
         this.placeholders = placeholders;
         this.variables = variables;
         this.houses = houses;
         this.functionRunner = functionRunner;
         this.inventoryLayouts = inventoryLayouts;
         this.customMenus = customMenus;
+        this.teams = teams;
     }
 
     @Override
@@ -85,6 +89,11 @@ public final class SimpleActionCodec implements ActionCodec {
                 UUID id = null;
                 try { id = UUID.fromString(string(map, "menuId")); } catch (Exception ignored) {}
                 yield new OpenCustomMenuAction(customMenus, id);
+            }
+            case "change_team" -> {
+                UUID id = null;
+                try { id = UUID.fromString(string(map, "teamId")); } catch (Exception ignored) {}
+                yield new ChangeTeamAction(teams, id);
             }
             case "conditional" -> decodeConditional(map);
             default -> null;
