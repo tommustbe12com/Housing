@@ -199,8 +199,14 @@ public final class InventoryLayoutsGui {
 
         ItemStack[] contents = layout.contents();
         if (contents != null) {
-            for (int i = 0; i < Math.min(36, contents.length); i++) {
-                if (contents[i] != null && !contents[i].getType().isAir()) inv.setItem(i, contents[i]);
+            // Render player inventory 9..35 into editor slots 0..26, then hotbar 0..8 into slots 27..35.
+            for (int i = 9; i <= 35 && i < contents.length; i++) {
+                ItemStack it = contents[i];
+                if (it != null && !it.getType().isAir()) inv.setItem(i - 9, it);
+            }
+            for (int i = 0; i <= 8 && i < contents.length; i++) {
+                ItemStack it = contents[i];
+                if (it != null && !it.getType().isAir()) inv.setItem(27 + i, it);
             }
         }
 
@@ -224,9 +230,12 @@ public final class InventoryLayoutsGui {
         if (l == null) return;
         Inventory inv = player.getOpenInventory().getTopInventory();
 
+        // Editor layout uses 4 rows:
+        // - Slots 0..26 are the top 3 rows (player inventory 9..35)
+        // - Slots 27..35 are the bottom row (player hotbar 0..8)
         ItemStack[] contents = new ItemStack[36];
-        for (int i = 0; i < 36; i++) contents[i] = inv.getItem(i);
-        contents[8] = null;
+        for (int i = 0; i <= 26; i++) contents[i + 9] = inv.getItem(i);
+        for (int i = 27; i <= 35; i++) contents[i - 27] = inv.getItem(i);
         l.setContents(contents);
 
         l.setHelmet(inv.getItem(45));
@@ -257,4 +266,3 @@ public final class InventoryLayoutsGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-
