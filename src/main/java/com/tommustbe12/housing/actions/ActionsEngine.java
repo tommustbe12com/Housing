@@ -23,17 +23,29 @@ public final class ActionsEngine {
 
     private void runFrom(ActionList list, ActionContext ctx, int startIndex) {
         if (list == null || list.actions() == null) return;
+
         for (int i = Math.max(0, startIndex); i < list.actions().size(); i++) {
             Action action = list.actions().get(i);
             if (action == null) continue;
+
             try {
                 // Pause execution: schedule remaining actions and stop now.
                 if (action instanceof com.tommustbe12.housing.actions.impl.PauseExecutionAction pause) {
                     long ticks = Math.max(0L, pause.ticks());
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> runFrom(list, ctx, i + 1), ticks);
+
+                    final int nextIndex = i + 1;
+
+                    Bukkit.getScheduler().runTaskLater(
+                            plugin,
+                            () -> runFrom(list, ctx, nextIndex),
+                            ticks
+                    );
+
                     return;
                 }
+
                 action.execute(ctx);
+
             } catch (Throwable t) {
                 debug.error("Action failed: " + action.type(), t);
             }

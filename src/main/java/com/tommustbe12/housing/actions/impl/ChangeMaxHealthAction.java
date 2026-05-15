@@ -23,11 +23,21 @@ public final class ChangeMaxHealthAction implements Action {
         if (ctx == null) return;
         var target = ctx.other() != null ? ctx.other() : ctx.player();
         if (target == null) return;
-        var attr = target.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        Attribute maxHealthAttr = resolveMaxHealthAttribute();
+        if (maxHealthAttr == null) return;
+        var attr = target.getAttribute(maxHealthAttr);
         if (attr == null) return;
         double clamped = Math.max(1.0, Math.min(2048.0, maxHealth));
         attr.setBaseValue(clamped);
         if (target.getHealth() > clamped) target.setHealth(clamped);
     }
-}
 
+    private static Attribute resolveMaxHealthAttribute() {
+        for (Attribute a : Attribute.values()) {
+            if (a == null) continue;
+            String n = a.name();
+            if ("GENERIC_MAX_HEALTH".equals(n) || "MAX_HEALTH".equals(n)) return a;
+        }
+        return null;
+    }
+}

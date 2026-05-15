@@ -171,8 +171,16 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isVelocityTitle(title)
                 || actionsEditor.isLaunchTitle(title)
                 || actionsEditor.isEnchantTitle(title)
+                || actionsEditor.isEnchantSelectTitle(title)
                 || actionsEditor.isRandomTitle(title)
                 || actionsEditor.isPotionTitle(title)
+                || actionsEditor.isPotionEffectTitle(title)
+                || actionsEditor.isNumberTitle(title)
+                || actionsEditor.isTeleportTitle(title)
+                || actionsEditor.isPauseTitle(title)
+                || actionsEditor.isMaxHealthTitle(title)
+                || actionsEditor.isHealthTitle(title)
+                || actionsEditor.isHungerTitle(title)
                 || actionsEditor.isPlaySoundTitle(title)
                 || functionsGui.isTitle(title)
                 || (regionsGui != null && regionsGui.isTitle(title))
@@ -274,6 +282,38 @@ public final class HouseItemListener implements Listener {
         }
         if (actionsEditor.isPotionTitle(title)) {
             actionsEditor.handlePotionClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isPotionEffectTitle(title)) {
+            actionsEditor.handlePotionEffectPickerClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isEnchantSelectTitle(title)) {
+            actionsEditor.handleEnchantPickerClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isNumberTitle(title)) {
+            actionsEditor.handleNumberClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isTeleportTitle(title)) {
+            actionsEditor.handleTeleportClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isPauseTitle(title)) {
+            actionsEditor.handlePauseClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isMaxHealthTitle(title)) {
+            actionsEditor.handleMaxHealthClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isHealthTitle(title)) {
+            actionsEditor.handleHealthClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isHungerTitle(title)) {
+            actionsEditor.handleHungerClick(player, clicked);
             return;
         }
         if (actionsEditor.isMenuPickerTitle(title)) {
@@ -686,8 +726,16 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isVelocityTitle(title)
                 || actionsEditor.isLaunchTitle(title)
                 || actionsEditor.isEnchantTitle(title)
+                || actionsEditor.isEnchantSelectTitle(title)
                 || actionsEditor.isRandomTitle(title)
                 || actionsEditor.isPotionTitle(title)
+                || actionsEditor.isPotionEffectTitle(title)
+                || actionsEditor.isNumberTitle(title)
+                || actionsEditor.isTeleportTitle(title)
+                || actionsEditor.isPauseTitle(title)
+                || actionsEditor.isMaxHealthTitle(title)
+                || actionsEditor.isHealthTitle(title)
+                || actionsEditor.isHungerTitle(title)
                 || functionsGui.isTitle(title)
                 || (regionsGui != null && regionsGui.isTitle(title))
                 || (conditionalGui != null && conditionalGui.isTitle(title))

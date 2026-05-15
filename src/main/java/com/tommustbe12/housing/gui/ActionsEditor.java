@@ -49,11 +49,19 @@ public final class ActionsEditor {
     private static final String TITLE_LAUNCH = "Launch To Target";
     private static final String TITLE_ENCHANT = "Enchant Held Item";
     private static final String TITLE_RANDOM = "Random Action";
+    private static final String TITLE_NUMBER = "Edit Value";
+    private static final String TITLE_TELEPORT = "Teleport Player";
+    private static final String TITLE_PAUSE = "Pause Execution";
+    private static final String TITLE_MAX_HEALTH = "Max Health";
+    private static final String TITLE_HEALTH = "Health";
+    private static final String TITLE_HUNGER = "Hunger";
     private static final String TITLE_CHANGE_VARIABLE = "Edit Stat Change";
     private static final String TITLE_PLAY_SOUND = "Play Sound";
     private static final String TITLE_SOUNDS = "Sounds";
     private static final String TITLE_PICK_SOUND = "Choose Sound";
     private static final String TITLE_POTION = "Potion Effect";
+    private static final String TITLE_POTION_EFFECT = "Select Effect";
+    private static final String TITLE_ENCHANT_SELECT = "Select Enchant";
 
     private final Plugin plugin;
     private final Debug debug;
@@ -71,6 +79,20 @@ public final class ActionsEditor {
 
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private ConditionalGui conditionalGui;
+
+    private enum NumberEditKind {
+        GIVE_AMOUNT, REMOVE_AMOUNT,
+        DROP_AMOUNT, DROP_X, DROP_Y, DROP_Z,
+        VELOCITY_X, VELOCITY_Y, VELOCITY_Z,
+        LAUNCH_X, LAUNCH_Y, LAUNCH_Z, LAUNCH_STRENGTH,
+        ENCHANT_LEVEL,
+        POTION_DURATION, POTION_AMP,
+        PAUSE_TICKS,
+        MAX_HEALTH, HEALTH, HUNGER,
+        TP_X, TP_Y, TP_Z, TP_YAW, TP_PITCH
+    }
+
+    private record NumberEdit(NumberEditKind kind, double value, double step, double min, double max, String backTitle) {}
 
     public ActionsEditor(Plugin plugin, Debug debug, ChatPrompts prompts, HouseManager houses) {
         this.plugin = plugin;
@@ -126,6 +148,7 @@ public final class ActionsEditor {
         return TITLE_PLAY_SOUND.equals(title) || TITLE_SOUNDS.equals(title) || TITLE_PICK_SOUND.equals(title);
     }
     public boolean isPotionTitle(String title) { return TITLE_POTION.equals(title); }
+    public boolean isPotionEffectTitle(String title) { return TITLE_POTION_EFFECT.equals(title); }
 
     public boolean isGiveItemTitle(String title) { return TITLE_GIVE_ITEM.equals(title); }
     public boolean isRemoveItemTitle(String title) { return TITLE_REMOVE_ITEM.equals(title); }
@@ -136,7 +159,14 @@ public final class ActionsEditor {
     public boolean isVelocityTitle(String title) { return TITLE_VELOCITY.equals(title); }
     public boolean isLaunchTitle(String title) { return TITLE_LAUNCH.equals(title); }
     public boolean isEnchantTitle(String title) { return TITLE_ENCHANT.equals(title); }
+    public boolean isEnchantSelectTitle(String title) { return TITLE_ENCHANT_SELECT.equals(title); }
     public boolean isRandomTitle(String title) { return TITLE_RANDOM.equals(title); }
+    public boolean isNumberTitle(String title) { return TITLE_NUMBER.equals(title); }
+    public boolean isTeleportTitle(String title) { return TITLE_TELEPORT.equals(title); }
+    public boolean isPauseTitle(String title) { return TITLE_PAUSE.equals(title); }
+    public boolean isMaxHealthTitle(String title) { return TITLE_MAX_HEALTH.equals(title); }
+    public boolean isHealthTitle(String title) { return TITLE_HEALTH.equals(title); }
+    public boolean isHungerTitle(String title) { return TITLE_HUNGER.equals(title); }
 
     public void openEventActions(Player player, UUID owner, HouseSlot slot, String eventKey, Runnable back) {
         Session session = Session.forHouseEvent(owner, slot, eventKey.toLowerCase(Locale.ROOT), back,
@@ -318,44 +348,40 @@ public final class ActionsEditor {
                 }, () -> openList(player, session));
             }
             case PLAYER_HEAD -> openGroupPicker(player);
-            case DANDELION -> prompt(player, "Set max health:", msg -> {
-                list.actions().add(new ChangeMaxHealthAction(Double.parseDouble(msg.trim())));
-                save(session);
-                openList(player, session);
-            });
+            case DANDELION -> {
+                session.maxHealth = 20.0;
+                openMaxHealthGui(player, session);
+            }
             case HOPPER -> {
                 session.replaceIndex = null;
                 session.removeItemStack = null;
                 session.removeAmount = 1;
                 openRemoveItemGui(player, session);
             }
-            case APPLE -> prompt(player, "Set health:", msg -> {
-                list.actions().add(new ChangeHealthAction(Double.parseDouble(msg.trim())));
-                save(session);
-                openList(player, session);
-            });
-            case BEEF -> prompt(player, "Set hunger (0-20):", msg -> {
-                list.actions().add(new ChangeHungerLevelAction(Integer.parseInt(msg.trim())));
-                save(session);
-                openList(player, session);
-            });
+            case APPLE -> {
+                session.health = 20.0;
+                openHealthGui(player, session);
+            }
+            case BEEF -> {
+                session.hunger = 20;
+                openHungerGui(player, session);
+            }
             case ENDER_PEARL -> {
                 // Default to house spawn, editable later.
-                list.actions().add(new TeleportPlayerAction(houses, TeleportPlayerAction.Mode.HOUSE_SPAWN, 0, 0, 0, 0f, 0f));
-                save(session);
-                openList(player, session);
+                session.tpMode = TeleportPlayerAction.Mode.HOUSE_SPAWN;
+                session.tpX = session.tpY = session.tpZ = 0;
+                session.tpYaw = 0f;
+                session.tpPitch = 0f;
+                openTeleportGui(player, session);
             }
-            case RED_BED -> prompt(player, "Pause ticks:", msg -> {
-                list.actions().add(new PauseExecutionAction(Long.parseLong(msg.trim())));
-                save(session);
-                openList(player, session);
-            });
+            case RED_BED -> {
+                session.pauseTicks = 20L;
+                openPauseGui(player, session);
+            }
             case COMPASS -> openCompassGui(player, session);
             case GRASS_BLOCK -> openGamemodeGui(player, session);
             case DISPENSER -> {
                 // Page 1 uses dispenser for Random Action, page 2 uses dispenser for Drop Item.
-                String t = player.getOpenInventory().getTitle();
-                boolean page2 = t != null && t.startsWith(TITLE_ADD_PREFIX) && t.contains("(2/2)");
                 if (page2) {
                     session.dropItemStack = null;
                     session.dropAmount = 1;
@@ -378,7 +404,7 @@ public final class ActionsEditor {
         fill(inv);
         inv.setItem(11, named(Material.PAPER, "§ePick Item", List.of("§7Place the item in the center slot.")));
         inv.setItem(13, session.giveItemStack == null ? null : session.giveItemStack);
-        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.giveAmount, List.of("§7Click to edit in chat.")));
+        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.giveAmount, List.of("§7Click to edit.")));
         inv.setItem(21, named(Material.CHEST, "§bSlot: §f" + (session.giveSlot == null ? "Any" : session.giveSlot), List.of("§7Click to pick slot.")));
         inv.setItem(22, named(Material.LEVER, "§dReplace Slot: §f" + (session.giveReplace ? "ON" : "OFF"), List.of("§7Click to toggle.")));
         inv.setItem(23, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
@@ -391,7 +417,7 @@ public final class ActionsEditor {
         fill(inv);
         inv.setItem(11, named(Material.PAPER, "§ePick Item", List.of("§7Place the item in the center slot.")));
         inv.setItem(13, session.removeItemStack == null ? null : session.removeItemStack);
-        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.removeAmount, List.of("§7Click to edit in chat.")));
+        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.removeAmount, List.of("§7Click to edit.")));
         inv.setItem(23, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
         player.openInventory(inv);
@@ -428,12 +454,113 @@ public final class ActionsEditor {
     private void openPotionGui(Player player, Session session) {
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_POTION);
         fill(inv);
-        inv.setItem(11, named(Material.POTION, "§dEffect: §f" + session.potionEffect, List.of("§7Click to edit in chat.")));
-        inv.setItem(13, named(Material.CLOCK, "§bDuration (ticks): §f" + session.potionDuration, List.of("§7Click to edit in chat.")));
-        inv.setItem(15, named(Material.EXPERIENCE_BOTTLE, "§aAmplifier: §f" + session.potionAmplifier, List.of("§7Click to edit in chat.")));
+        inv.setItem(11, named(Material.POTION, "§dEffect: §f" + session.potionEffect, List.of("§7Click to pick.")));
+        inv.setItem(13, named(Material.CLOCK, "§bDuration (ticks): §f" + session.potionDuration, List.of("§7Click to edit.")));
+        inv.setItem(15, named(Material.EXPERIENCE_BOTTLE, "§aAmplifier: §f" + session.potionAmplifier, List.of("§7Click to edit.")));
         inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
         player.openInventory(inv);
+    }
+
+    private void openPotionEffectPicker(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_POTION_EFFECT);
+        fill(inv);
+        int slot = 0;
+        for (org.bukkit.potion.PotionEffectType type : org.bukkit.potion.PotionEffectType.values()) {
+            if (type == null) continue;
+            if (slot >= 45) break;
+            String name = type.getName();
+            inv.setItem(slot++, named(Material.POTION, "§e" + name, List.of("§7Click to select.")));
+        }
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private void openEnchantPicker(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_ENCHANT_SELECT);
+        fill(inv);
+        int slot = 0;
+        for (org.bukkit.enchantments.Enchantment ench : org.bukkit.enchantments.Enchantment.values()) {
+            if (ench == null) continue;
+            if (slot >= 45) break;
+            String key = ench.getKey().getKey();
+            inv.setItem(slot++, named(Material.ENCHANTED_BOOK, "§e" + key, List.of("§7Click to select.")));
+        }
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private void openNumberGui(Player player, Session session) {
+        if (session.numberEdit == null) return;
+        NumberEdit e = session.numberEdit;
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_NUMBER);
+        fill(inv);
+        inv.setItem(13, named(Material.NAME_TAG, "§eValue: §f" + trimNum(e.value), List.of("§7Click +/- to adjust.")));
+        inv.setItem(10, named(Material.REDSTONE, "§c-1", List.of()));
+        inv.setItem(11, named(Material.REDSTONE, "§c-5", List.of()));
+        inv.setItem(12, named(Material.REDSTONE, "§c-10", List.of()));
+        inv.setItem(14, named(Material.EMERALD, "§a+1", List.of()));
+        inv.setItem(15, named(Material.EMERALD, "§a+5", List.of()));
+        inv.setItem(16, named(Material.EMERALD, "§a+10", List.of()));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save value.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openPauseGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_PAUSE);
+        fill(inv);
+        inv.setItem(13, named(Material.CLOCK, "§eTicks: §f" + session.pauseTicks, List.of("§7Click to edit.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openMaxHealthGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_MAX_HEALTH);
+        fill(inv);
+        inv.setItem(13, named(Material.DANDELION, "§eMax Health: §f" + trimNum(session.maxHealth), List.of("§7Click to edit.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openHealthGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_HEALTH);
+        fill(inv);
+        inv.setItem(13, named(Material.APPLE, "§eHealth: §f" + trimNum(session.health), List.of("§7Click to edit.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openHungerGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_HUNGER);
+        fill(inv);
+        inv.setItem(13, named(Material.BEEF, "§eHunger: §f" + session.hunger, List.of("§7Click to edit.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openTeleportGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_TELEPORT);
+        fill(inv);
+        inv.setItem(11, named(Material.COMPASS, "§eMode: §f" + session.tpMode.name(), List.of("§7Click to cycle.")));
+        inv.setItem(13, named(Material.PAPER, "§bUse My Location", List.of("§7Click to set coords + yaw/pitch.")));
+        inv.setItem(18, named(Material.NAME_TAG, "§eX: §f" + trimNum(session.tpX), List.of("§7Click to edit.", "§7Only for COORDS mode.")));
+        inv.setItem(19, named(Material.NAME_TAG, "§eY: §f" + trimNum(session.tpY), List.of("§7Click to edit.", "§7Only for COORDS mode.")));
+        inv.setItem(20, named(Material.NAME_TAG, "§eZ: §f" + trimNum(session.tpZ), List.of("§7Click to edit.", "§7Only for COORDS mode.")));
+        inv.setItem(21, named(Material.NAME_TAG, "§eYaw: §f" + trimNum(session.tpYaw), List.of("§7Click to edit.", "§7Only for COORDS mode.")));
+        inv.setItem(22, named(Material.NAME_TAG, "§ePitch: §f" + trimNum(session.tpPitch), List.of("§7Click to edit.", "§7Only for COORDS mode.")));
+        inv.setItem(24, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private static String trimNum(double v) {
+        if (Math.abs(v - Math.rint(v)) < 1e-9) return Long.toString((long) Math.rint(v));
+        return Double.toString(v);
     }
 
     private void openDropItemGui(Player player, Session session) {
@@ -441,9 +568,11 @@ public final class ActionsEditor {
         fill(inv);
         inv.setItem(11, named(Material.PAPER, "§ePick Item", List.of("§7Place the item in the center slot.")));
         inv.setItem(13, session.dropItemStack == null ? null : session.dropItemStack);
-        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.dropAmount, List.of("§7Click to edit in chat.")));
+        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.dropAmount, List.of("§7Click to edit.")));
         inv.setItem(21, named(Material.COMPASS, "§bWhere: §f" + session.dropWhere.name(), List.of("§7Click to cycle.")));
-        inv.setItem(22, named(Material.OAK_SIGN, "§eCoords: §f" + session.dropX + "," + session.dropY + "," + session.dropZ, List.of("§7Used only for COORDS.", "§7Click to edit in chat.")));
+        inv.setItem(19, named(Material.NAME_TAG, "§eX: §f" + session.dropX, List.of("§7Click to edit.")));
+        inv.setItem(20, named(Material.NAME_TAG, "§eY: §f" + session.dropY, List.of("§7Click to edit.")));
+        inv.setItem(22, named(Material.NAME_TAG, "§eZ: §f" + session.dropZ, List.of("§7Click to edit.")));
         inv.setItem(23, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
         player.openInventory(inv);
@@ -452,7 +581,10 @@ public final class ActionsEditor {
     private void openVelocityGui(Player player, Session session) {
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_VELOCITY);
         fill(inv);
-        inv.setItem(13, named(Material.SLIME_BLOCK, "§aVelocity", List.of("§7Current: §f" + session.velX + "," + session.velY + "," + session.velZ, "§7Click to edit in chat.")));
+        inv.setItem(19, named(Material.NAME_TAG, "§eX: §f" + trimNum(session.velX), List.of("§7Click to edit.")));
+        inv.setItem(20, named(Material.NAME_TAG, "§eY: §f" + trimNum(session.velY), List.of("§7Click to edit.")));
+        inv.setItem(21, named(Material.NAME_TAG, "§eZ: §f" + trimNum(session.velZ), List.of("§7Click to edit.")));
+        inv.setItem(13, named(Material.SLIME_BLOCK, "§aVelocity", List.of("§7Use X/Y/Z to edit.")));
         inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
         player.openInventory(inv);
@@ -462,8 +594,10 @@ public final class ActionsEditor {
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_LAUNCH);
         fill(inv);
         inv.setItem(11, named(Material.COMPASS, "§eTarget: §f" + session.launchTarget.name(), List.of("§7Click to cycle.")));
-        inv.setItem(13, named(Material.OAK_SIGN, "§eCoords", List.of("§7" + session.launchX + "," + session.launchY + "," + session.launchZ, "§7Used only for COORDS.", "§7Click to edit in chat.")));
-        inv.setItem(15, named(Material.NAME_TAG, "§aStrength: §f" + session.launchStrength, List.of("§7Click to edit in chat.")));
+        inv.setItem(19, named(Material.NAME_TAG, "§eX: §f" + trimNum(session.launchX), List.of("§7Used only for COORDS.", "§7Click to edit.")));
+        inv.setItem(20, named(Material.NAME_TAG, "§eY: §f" + trimNum(session.launchY), List.of("§7Used only for COORDS.", "§7Click to edit.")));
+        inv.setItem(21, named(Material.NAME_TAG, "§eZ: §f" + trimNum(session.launchZ), List.of("§7Used only for COORDS.", "§7Click to edit.")));
+        inv.setItem(15, named(Material.NAME_TAG, "§aStrength: §f" + trimNum(session.launchStrength), List.of("§7Click to edit.")));
         inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
         player.openInventory(inv);
@@ -472,8 +606,8 @@ public final class ActionsEditor {
     private void openEnchantGui(Player player, Session session) {
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_ENCHANT);
         fill(inv);
-        inv.setItem(11, named(Material.ENCHANTED_BOOK, "§dEnchant", List.of("§7Key: §f" + session.enchantKey, "§7Click to edit in chat (ex: sharpness).")));
-        inv.setItem(15, named(Material.NAME_TAG, "§aLevel: §f" + session.enchantLevel, List.of("§7Click to edit in chat.")));
+        inv.setItem(11, named(Material.ENCHANTED_BOOK, "§dEnchant", List.of("§7Key: §f" + session.enchantKey, "§7Click to pick.")));
+        inv.setItem(15, named(Material.NAME_TAG, "§aLevel: §f" + session.enchantLevel, List.of("§7Click to edit.")));
         inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
         player.openInventory(inv);
@@ -593,10 +727,8 @@ public final class ActionsEditor {
             return;
         }
         if (clicked.getType() == Material.NAME_TAG) {
-            prompt(player, "Amount:", msg -> {
-                session.giveAmount = Math.max(1, Integer.parseInt(msg.trim()));
-                openGiveItemGui(player, session);
-            });
+            session.numberEdit = new NumberEdit(NumberEditKind.GIVE_AMOUNT, session.giveAmount, 1.0, 1.0, 64.0, TITLE_GIVE_ITEM);
+            openNumberGui(player, session);
             return;
         }
         if (clicked.getType() == Material.LIME_CONCRETE) {
@@ -620,10 +752,8 @@ public final class ActionsEditor {
 
         if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
         if (clicked.getType() == Material.NAME_TAG) {
-            prompt(player, "Amount:", msg -> {
-                session.removeAmount = Math.max(1, Integer.parseInt(msg.trim()));
-                openRemoveItemGui(player, session);
-            });
+            session.numberEdit = new NumberEdit(NumberEditKind.REMOVE_AMOUNT, session.removeAmount, 1.0, 1.0, 64.0, TITLE_REMOVE_ITEM);
+            openNumberGui(player, session);
             return;
         }
         if (clicked.getType() == Material.LIME_CONCRETE) {
@@ -695,10 +825,13 @@ public final class ActionsEditor {
 
         if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
         if (clicked.getType() == Material.NAME_TAG) {
-            prompt(player, "Amount:", msg -> {
-                session.dropAmount = Math.max(1, Integer.parseInt(msg.trim()));
-                openDropItemGui(player, session);
-            });
+            String n = stripColor(clicked.getItemMeta().getDisplayName());
+            if (n.startsWith("Amount:")) session.numberEdit = new NumberEdit(NumberEditKind.DROP_AMOUNT, session.dropAmount, 1.0, 1.0, 64.0, TITLE_DROP_ITEM);
+            else if (n.startsWith("X:")) session.numberEdit = new NumberEdit(NumberEditKind.DROP_X, session.dropX, 1.0, -30000000.0, 30000000.0, TITLE_DROP_ITEM);
+            else if (n.startsWith("Y:")) session.numberEdit = new NumberEdit(NumberEditKind.DROP_Y, session.dropY, 1.0, -2048.0, 2048.0, TITLE_DROP_ITEM);
+            else if (n.startsWith("Z:")) session.numberEdit = new NumberEdit(NumberEditKind.DROP_Z, session.dropZ, 1.0, -30000000.0, 30000000.0, TITLE_DROP_ITEM);
+            else return;
+            openNumberGui(player, session);
             return;
         }
         if (clicked.getType() == Material.COMPASS) {
@@ -708,16 +841,7 @@ public final class ActionsEditor {
             openDropItemGui(player, session);
             return;
         }
-        if (clicked.getType() == Material.OAK_SIGN) {
-            prompt(player, "Coords x,y,z:", msg -> {
-                String[] p = msg.split(",", 3);
-                session.dropX = Double.parseDouble(p[0].trim());
-                session.dropY = Double.parseDouble(p[1].trim());
-                session.dropZ = Double.parseDouble(p[2].trim());
-                openDropItemGui(player, session);
-            });
-            return;
-        }
+        // Coords edited via X/Y/Z fields.
         if (clicked.getType() == Material.LIME_CONCRETE) {
             ItemStack picked = player.getOpenInventory().getTopInventory().getItem(13);
             if (picked == null || picked.getType().isAir()) {
@@ -736,14 +860,13 @@ public final class ActionsEditor {
         if (!TITLE_VELOCITY.equals(player.getOpenInventory().getTitle())) return;
         if (clicked == null || clicked.getType().isAir()) return;
         if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
-        if (clicked.getType() == Material.SLIME_BLOCK) {
-            prompt(player, "Velocity x,y,z:", msg -> {
-                String[] p = msg.split(",", 3);
-                session.velX = Double.parseDouble(p[0].trim());
-                session.velY = Double.parseDouble(p[1].trim());
-                session.velZ = Double.parseDouble(p[2].trim());
-                openVelocityGui(player, session);
-            });
+        if (clicked.getType() == Material.NAME_TAG) {
+            String n = stripColor(clicked.getItemMeta().getDisplayName());
+            if (n.startsWith("X:")) session.numberEdit = new NumberEdit(NumberEditKind.VELOCITY_X, session.velX, 0.1, -10.0, 10.0, TITLE_VELOCITY);
+            else if (n.startsWith("Y:")) session.numberEdit = new NumberEdit(NumberEditKind.VELOCITY_Y, session.velY, 0.1, -10.0, 10.0, TITLE_VELOCITY);
+            else if (n.startsWith("Z:")) session.numberEdit = new NumberEdit(NumberEditKind.VELOCITY_Z, session.velZ, 0.1, -10.0, 10.0, TITLE_VELOCITY);
+            else return;
+            openNumberGui(player, session);
             return;
         }
         if (clicked.getType() == Material.LIME_CONCRETE) {
@@ -766,21 +889,14 @@ public final class ActionsEditor {
             openLaunchGui(player, session);
             return;
         }
-        if (clicked.getType() == Material.OAK_SIGN) {
-            prompt(player, "Coords x,y,z:", msg -> {
-                String[] p = msg.split(",", 3);
-                session.launchX = Double.parseDouble(p[0].trim());
-                session.launchY = Double.parseDouble(p[1].trim());
-                session.launchZ = Double.parseDouble(p[2].trim());
-                openLaunchGui(player, session);
-            });
-            return;
-        }
         if (clicked.getType() == Material.NAME_TAG) {
-            prompt(player, "Strength:", msg -> {
-                session.launchStrength = Double.parseDouble(msg.trim());
-                openLaunchGui(player, session);
-            });
+            String n = stripColor(clicked.getItemMeta().getDisplayName());
+            if (n.startsWith("X:")) session.numberEdit = new NumberEdit(NumberEditKind.LAUNCH_X, session.launchX, 1.0, -30000000.0, 30000000.0, TITLE_LAUNCH);
+            else if (n.startsWith("Y:")) session.numberEdit = new NumberEdit(NumberEditKind.LAUNCH_Y, session.launchY, 1.0, -2048.0, 2048.0, TITLE_LAUNCH);
+            else if (n.startsWith("Z:")) session.numberEdit = new NumberEdit(NumberEditKind.LAUNCH_Z, session.launchZ, 1.0, -30000000.0, 30000000.0, TITLE_LAUNCH);
+            else if (n.startsWith("Strength:")) session.numberEdit = new NumberEdit(NumberEditKind.LAUNCH_STRENGTH, session.launchStrength, 0.1, 0.0, 10.0, TITLE_LAUNCH);
+            else return;
+            openNumberGui(player, session);
             return;
         }
         if (clicked.getType() == Material.LIME_CONCRETE) {
@@ -797,17 +913,12 @@ public final class ActionsEditor {
         if (clicked == null || clicked.getType().isAir()) return;
         if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
         if (clicked.getType() == Material.ENCHANTED_BOOK) {
-            prompt(player, "Enchant key (ex: sharpness):", msg -> {
-                session.enchantKey = msg.trim().toLowerCase(java.util.Locale.ROOT);
-                openEnchantGui(player, session);
-            });
+            openEnchantPicker(player, session);
             return;
         }
         if (clicked.getType() == Material.NAME_TAG) {
-            prompt(player, "Level:", msg -> {
-                session.enchantLevel = Math.max(1, Integer.parseInt(msg.trim()));
-                openEnchantGui(player, session);
-            });
+            session.numberEdit = new NumberEdit(NumberEditKind.ENCHANT_LEVEL, session.enchantLevel, 1.0, 1.0, 255.0, TITLE_ENCHANT);
+            openNumberGui(player, session);
             return;
         }
         if (clicked.getType() == Material.LIME_CONCRETE) {
@@ -844,24 +955,17 @@ public final class ActionsEditor {
         if (clicked == null || clicked.getType().isAir()) return;
         if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
         if (clicked.getType() == Material.POTION) {
-            prompt(player, "Effect (ex: SPEED):", msg -> {
-                session.potionEffect = msg.trim().toUpperCase(java.util.Locale.ROOT);
-                openPotionGui(player, session);
-            });
+            openPotionEffectPicker(player, session);
             return;
         }
         if (clicked.getType() == Material.CLOCK) {
-            prompt(player, "Duration ticks:", msg -> {
-                session.potionDuration = Math.max(1, Integer.parseInt(msg.trim()));
-                openPotionGui(player, session);
-            });
+            session.numberEdit = new NumberEdit(NumberEditKind.POTION_DURATION, session.potionDuration, 20.0, 1.0, 20.0 * 60.0 * 60.0, TITLE_POTION);
+            openNumberGui(player, session);
             return;
         }
         if (clicked.getType() == Material.EXPERIENCE_BOTTLE) {
-            prompt(player, "Amplifier:", msg -> {
-                session.potionAmplifier = Math.max(0, Integer.parseInt(msg.trim()));
-                openPotionGui(player, session);
-            });
+            session.numberEdit = new NumberEdit(NumberEditKind.POTION_AMP, session.potionAmplifier, 1.0, 0.0, 255.0, TITLE_POTION);
+            openNumberGui(player, session);
             return;
         }
         if (clicked.getType() == Material.LIME_CONCRETE) {
@@ -874,6 +978,274 @@ public final class ActionsEditor {
             save(session);
             openList(player, session);
         }
+    }
+
+    public void handlePotionEffectPickerClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_POTION_EFFECT.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) {
+            openPotionGui(player, session);
+            return;
+        }
+        if (clicked.getType() != Material.POTION) return;
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getDisplayName() == null) return;
+        session.potionEffect = stripColor(meta.getDisplayName()).trim().toUpperCase(Locale.ROOT);
+        openPotionGui(player, session);
+    }
+
+    public void handleEnchantPickerClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_ENCHANT_SELECT.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) {
+            openEnchantGui(player, session);
+            return;
+        }
+        if (clicked.getType() != Material.ENCHANTED_BOOK) return;
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getDisplayName() == null) return;
+        session.enchantKey = stripColor(meta.getDisplayName()).trim().toLowerCase(Locale.ROOT);
+        openEnchantGui(player, session);
+    }
+
+    public void handleNumberClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null || session.numberEdit == null) return;
+        if (!TITLE_NUMBER.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) {
+            // return to originating GUI
+            String back = session.numberEdit.backTitle();
+            session.numberEdit = null;
+            reopenByTitle(player, session, back);
+            return;
+        }
+
+        double delta = 0;
+        if (clicked.getType() == Material.REDSTONE) {
+            String n = stripColor(clicked.getItemMeta().getDisplayName()).replace("-", "").trim();
+            delta = -Double.parseDouble(n);
+        } else if (clicked.getType() == Material.EMERALD) {
+            String n = stripColor(clicked.getItemMeta().getDisplayName()).replace("+", "").trim();
+            delta = Double.parseDouble(n);
+        } else if (clicked.getType() == Material.LIME_CONCRETE) {
+            applyNumberEdit(session);
+            String back = session.numberEdit.backTitle();
+            session.numberEdit = null;
+            reopenByTitle(player, session, back);
+            return;
+        } else {
+            return;
+        }
+
+        NumberEdit e = session.numberEdit;
+        double next = clamp(e.value + delta * e.step, e.min, e.max);
+        session.numberEdit = new NumberEdit(e.kind, next, e.step, e.min, e.max, e.backTitle);
+        openNumberGui(player, session);
+    }
+
+    public void handlePauseClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_PAUSE.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.CLOCK) {
+            session.numberEdit = new NumberEdit(NumberEditKind.PAUSE_TICKS, session.pauseTicks, 1.0, 1.0, 20.0 * 60.0 * 60.0, TITLE_PAUSE);
+            openNumberGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            if (session.replaceIndex != null && session.replaceIndex >= 0 && session.replaceIndex < session.list().actions().size()) {
+                session.list().actions().set(session.replaceIndex, new PauseExecutionAction(session.pauseTicks));
+                session.replaceIndex = null;
+            } else {
+                session.list().actions().add(new PauseExecutionAction(session.pauseTicks));
+            }
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleMaxHealthClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_MAX_HEALTH.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.DANDELION) {
+            session.numberEdit = new NumberEdit(NumberEditKind.MAX_HEALTH, session.maxHealth, 1.0, 1.0, 2048.0, TITLE_MAX_HEALTH);
+            openNumberGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            if (session.replaceIndex != null && session.replaceIndex >= 0 && session.replaceIndex < session.list().actions().size()) {
+                session.list().actions().set(session.replaceIndex, new ChangeMaxHealthAction(session.maxHealth));
+                session.replaceIndex = null;
+            } else {
+                session.list().actions().add(new ChangeMaxHealthAction(session.maxHealth));
+            }
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleHealthClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_HEALTH.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.APPLE) {
+            session.numberEdit = new NumberEdit(NumberEditKind.HEALTH, session.health, 1.0, 0.0, 2048.0, TITLE_HEALTH);
+            openNumberGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            if (session.replaceIndex != null && session.replaceIndex >= 0 && session.replaceIndex < session.list().actions().size()) {
+                session.list().actions().set(session.replaceIndex, new ChangeHealthAction(session.health));
+                session.replaceIndex = null;
+            } else {
+                session.list().actions().add(new ChangeHealthAction(session.health));
+            }
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleHungerClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_HUNGER.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.BEEF) {
+            session.numberEdit = new NumberEdit(NumberEditKind.HUNGER, session.hunger, 1.0, 0.0, 20.0, TITLE_HUNGER);
+            openNumberGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            if (session.replaceIndex != null && session.replaceIndex >= 0 && session.replaceIndex < session.list().actions().size()) {
+                session.list().actions().set(session.replaceIndex, new ChangeHungerLevelAction(session.hunger));
+                session.replaceIndex = null;
+            } else {
+                session.list().actions().add(new ChangeHungerLevelAction(session.hunger));
+            }
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleTeleportClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_TELEPORT.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.COMPASS) {
+            TeleportPlayerAction.Mode[] vals = TeleportPlayerAction.Mode.values();
+            int idx = (session.tpMode.ordinal() + 1) % vals.length;
+            session.tpMode = vals[idx];
+            openTeleportGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.PAPER) {
+            var loc = player.getLocation();
+            session.tpX = loc.getX();
+            session.tpY = loc.getY();
+            session.tpZ = loc.getZ();
+            session.tpYaw = loc.getYaw();
+            session.tpPitch = loc.getPitch();
+            session.tpMode = TeleportPlayerAction.Mode.CURRENT_EDITOR;
+            openTeleportGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.NAME_TAG) {
+            if (session.tpMode != TeleportPlayerAction.Mode.COORDS) return;
+            String n = stripColor(clicked.getItemMeta().getDisplayName());
+            if (n.startsWith("X:")) session.numberEdit = new NumberEdit(NumberEditKind.TP_X, session.tpX, 1.0, -30000000.0, 30000000.0, TITLE_TELEPORT);
+            else if (n.startsWith("Y:")) session.numberEdit = new NumberEdit(NumberEditKind.TP_Y, session.tpY, 1.0, -2048.0, 2048.0, TITLE_TELEPORT);
+            else if (n.startsWith("Z:")) session.numberEdit = new NumberEdit(NumberEditKind.TP_Z, session.tpZ, 1.0, -30000000.0, 30000000.0, TITLE_TELEPORT);
+            else if (n.startsWith("Yaw:")) session.numberEdit = new NumberEdit(NumberEditKind.TP_YAW, session.tpYaw, 1.0, -180.0, 180.0, TITLE_TELEPORT);
+            else if (n.startsWith("Pitch:")) session.numberEdit = new NumberEdit(NumberEditKind.TP_PITCH, session.tpPitch, 1.0, -90.0, 90.0, TITLE_TELEPORT);
+            else return;
+            openNumberGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            TeleportPlayerAction next = new TeleportPlayerAction(houses, session.tpMode, session.tpX, session.tpY, session.tpZ, session.tpYaw, session.tpPitch);
+            if (session.replaceIndex != null && session.replaceIndex >= 0 && session.replaceIndex < session.list().actions().size()) {
+                session.list().actions().set(session.replaceIndex, next);
+                session.replaceIndex = null;
+            } else {
+                session.list().actions().add(next);
+            }
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    private static double clamp(double v, double min, double max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
+    private void applyNumberEdit(Session session) {
+        NumberEdit e = session.numberEdit;
+        if (e == null) return;
+        switch (e.kind) {
+            case POTION_DURATION -> session.potionDuration = (int) Math.rint(e.value);
+            case POTION_AMP -> session.potionAmplifier = (int) Math.rint(e.value);
+            case PAUSE_TICKS -> session.pauseTicks = (long) Math.rint(e.value);
+            case MAX_HEALTH -> session.maxHealth = e.value;
+            case HEALTH -> session.health = e.value;
+            case HUNGER -> session.hunger = (int) Math.rint(e.value);
+            case TP_X -> session.tpX = e.value;
+            case TP_Y -> session.tpY = e.value;
+            case TP_Z -> session.tpZ = e.value;
+            case TP_YAW -> session.tpYaw = (float) e.value;
+            case TP_PITCH -> session.tpPitch = (float) e.value;
+            case VELOCITY_X -> session.velX = e.value;
+            case VELOCITY_Y -> session.velY = e.value;
+            case VELOCITY_Z -> session.velZ = e.value;
+            case DROP_X -> session.dropX = e.value;
+            case DROP_Y -> session.dropY = e.value;
+            case DROP_Z -> session.dropZ = e.value;
+            case DROP_AMOUNT -> session.dropAmount = (int) Math.rint(e.value);
+            case LAUNCH_X -> session.launchX = e.value;
+            case LAUNCH_Y -> session.launchY = e.value;
+            case LAUNCH_Z -> session.launchZ = e.value;
+            case LAUNCH_STRENGTH -> session.launchStrength = e.value;
+            case ENCHANT_LEVEL -> session.enchantLevel = (int) Math.rint(e.value);
+            case GIVE_AMOUNT -> session.giveAmount = (int) Math.rint(e.value);
+            case REMOVE_AMOUNT -> session.removeAmount = (int) Math.rint(e.value);
+        }
+    }
+
+    private void reopenByTitle(Player player, Session session, String title) {
+        if (TITLE_POTION.equals(title)) openPotionGui(player, session);
+        else if (TITLE_DROP_ITEM.equals(title)) openDropItemGui(player, session);
+        else if (TITLE_VELOCITY.equals(title)) openVelocityGui(player, session);
+        else if (TITLE_LAUNCH.equals(title)) openLaunchGui(player, session);
+        else if (TITLE_GIVE_ITEM.equals(title)) openGiveItemGui(player, session);
+        else if (TITLE_REMOVE_ITEM.equals(title)) openRemoveItemGui(player, session);
+        else if (TITLE_TELEPORT.equals(title)) openTeleportGui(player, session);
+        else if (TITLE_PAUSE.equals(title)) openPauseGui(player, session);
+        else if (TITLE_MAX_HEALTH.equals(title)) openMaxHealthGui(player, session);
+        else if (TITLE_HEALTH.equals(title)) openHealthGui(player, session);
+        else if (TITLE_HUNGER.equals(title)) openHungerGui(player, session);
+        else openAddPicker(player);
     }
 
     public void handleMenuPickerClick(Player player, ItemStack clicked) {
@@ -1386,56 +1758,40 @@ public final class ActionsEditor {
         }
         if (action instanceof ChangeMaxHealthAction) {
             ChangeMaxHealthAction mh = (ChangeMaxHealthAction) action;
-            prompt(player, "Set max health:", msg -> {
-                list.actions().set(index, new ChangeMaxHealthAction(Double.parseDouble(msg.trim())));
-                save(session);
-                openList(player, session);
-            });
+            session.replaceIndex = index;
+            session.maxHealth = mh.maxHealth();
+            openMaxHealthGui(player, session);
             return;
         }
         if (action instanceof ChangeHealthAction) {
-            prompt(player, "Set health:", msg -> {
-                list.actions().set(index, new ChangeHealthAction(Double.parseDouble(msg.trim())));
-                save(session);
-                openList(player, session);
-            });
+            session.replaceIndex = index;
+            session.health = ((ChangeHealthAction) action).health();
+            openHealthGui(player, session);
             return;
         }
         if (action instanceof ChangeHungerLevelAction) {
-            prompt(player, "Set hunger (0-20):", msg -> {
-                list.actions().set(index, new ChangeHungerLevelAction(Integer.parseInt(msg.trim())));
-                save(session);
-                openList(player, session);
-            });
+            session.replaceIndex = index;
+            session.hunger = ((ChangeHungerLevelAction) action).foodLevel();
+            openHungerGui(player, session);
             return;
         }
         if (action instanceof PauseExecutionAction) {
             PauseExecutionAction p = (PauseExecutionAction) action;
-            prompt(player, "Pause ticks:", msg -> {
-                list.actions().set(index, new PauseExecutionAction(Long.parseLong(msg.trim())));
-                save(session);
-                openList(player, session);
-            });
+            session.replaceIndex = index;
+            session.pauseTicks = p.ticks();
+            openPauseGui(player, session);
             return;
         }
         if (action instanceof TeleportPlayerAction) {
             TeleportPlayerAction tp = (TeleportPlayerAction) action;
-            prompt(player, "Teleport mode (HOUSE_SPAWN|CURRENT_EDITOR|COORDS) or coords x,y,z:", msg -> {
-                String raw = msg.trim();
-                if (raw.contains(",")) {
-                    String[] parts = raw.split(",", 3);
-                    double x = Double.parseDouble(parts[0].trim());
-                    double y = Double.parseDouble(parts[1].trim());
-                    double z = Double.parseDouble(parts[2].trim());
-                    list.actions().set(index, new TeleportPlayerAction(houses, TeleportPlayerAction.Mode.COORDS, x, y, z, 0f, 0f));
-                } else {
-                    TeleportPlayerAction.Mode mode;
-                    try { mode = TeleportPlayerAction.Mode.valueOf(raw.toUpperCase(Locale.ROOT)); } catch (Exception e) { mode = TeleportPlayerAction.Mode.HOUSE_SPAWN; }
-                    list.actions().set(index, new TeleportPlayerAction(houses, mode, tp.x(), tp.y(), tp.z(), tp.yaw(), tp.pitch()));
-                }
-                save(session);
-                openList(player, session);
-            });
+            session.replaceIndex = index;
+            session.tpMode = tp.mode();
+            session.tpX = tp.x();
+            session.tpY = tp.y();
+            session.tpZ = tp.z();
+            session.tpYaw = tp.yaw();
+            session.tpPitch = tp.pitch();
+            openTeleportGui(player, session);
             return;
         }
         if (action instanceof ApplyPotionEffectAction) {
@@ -1678,6 +2034,17 @@ public final class ActionsEditor {
         private String potionEffect = "SPEED";
         private int potionDuration = 200;
         private int potionAmplifier = 0;
+
+        private long pauseTicks = 20L;
+        private double maxHealth = 20.0;
+        private double health = 20.0;
+        private int hunger = 20;
+
+        private TeleportPlayerAction.Mode tpMode = TeleportPlayerAction.Mode.HOUSE_SPAWN;
+        private double tpX, tpY, tpZ;
+        private float tpYaw, tpPitch;
+
+        private NumberEdit numberEdit;
 
         private Session(Kind kind, String key, UUID owner, HouseSlot slot, Map<String, ActionList> events, ActionList standalone, Consumer<ActionList> onSave, Runnable back) {
             this.kind = kind;
