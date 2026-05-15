@@ -28,6 +28,11 @@ import com.tommustbe12.housing.actions.impl.GiveItemAction;
 import com.tommustbe12.housing.actions.impl.RemoveItemAction;
 import com.tommustbe12.housing.actions.impl.SetGamemodeAction;
 import com.tommustbe12.housing.actions.impl.SetCompassTargetAction;
+import com.tommustbe12.housing.actions.impl.DropItemAction;
+import com.tommustbe12.housing.actions.impl.ChangeVelocityAction;
+import com.tommustbe12.housing.actions.impl.LaunchToTargetAction;
+import com.tommustbe12.housing.actions.impl.EnchantHeldItemAction;
+import com.tommustbe12.housing.actions.impl.RandomAction;
 import com.tommustbe12.housing.actions.ActionList;
 import com.tommustbe12.housing.actions.conditions.*;
 import com.tommustbe12.housing.util.ItemStackSerialization;
@@ -145,6 +150,29 @@ public final class SimpleActionCodec implements ActionCodec {
                 SetCompassTargetAction.Direction d;
                 try { d = SetCompassTargetAction.Direction.valueOf(string(map, "dir")); } catch (Exception e) { d = SetCompassTargetAction.Direction.N; }
                 yield new SetCompassTargetAction(d);
+            }
+            case "drop_item" -> {
+                String b64 = string(map, "item");
+                var item = b64 == null || b64.isBlank() ? null : ItemStackSerialization.fromBase64(b64);
+                DropItemAction.Where w;
+                try { w = DropItemAction.Where.valueOf(string(map, "where")); } catch (Exception e) { w = DropItemAction.Where.PLAYER; }
+                yield new DropItemAction(houses, item, integer(map, "amount", 1), w,
+                        doubleNum(map, "x", 0), doubleNum(map, "y", 0), doubleNum(map, "z", 0));
+            }
+            case "change_velocity" -> new ChangeVelocityAction(doubleNum(map, "x", 0), doubleNum(map, "y", 0), doubleNum(map, "z", 0));
+            case "launch_to_target" -> {
+                LaunchToTargetAction.Target t;
+                try { t = LaunchToTargetAction.Target.valueOf(string(map, "target")); } catch (Exception e) { t = LaunchToTargetAction.Target.EDITOR; }
+                yield new LaunchToTargetAction(houses, t,
+                        doubleNum(map, "x", 0), doubleNum(map, "y", 0), doubleNum(map, "z", 0),
+                        doubleNum(map, "strength", 1.0));
+            }
+            case "enchant_held_item" -> new EnchantHeldItemAction(string(map, "enchant"), integer(map, "level", 1));
+            case "random_action" -> {
+                Object raw = map.get("types");
+                java.util.List<String> types = new java.util.ArrayList<>();
+                if (raw instanceof java.util.List<?> arr) for (Object o : arr) if (o != null) types.add(o.toString());
+                yield new RandomAction(types);
             }
             case "conditional" -> decodeConditional(map);
             default -> null;

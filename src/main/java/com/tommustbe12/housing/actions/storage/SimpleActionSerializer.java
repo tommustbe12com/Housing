@@ -17,6 +17,11 @@ import com.tommustbe12.housing.actions.impl.GiveItemAction;
 import com.tommustbe12.housing.actions.impl.RemoveItemAction;
 import com.tommustbe12.housing.actions.impl.SetGamemodeAction;
 import com.tommustbe12.housing.actions.impl.SetCompassTargetAction;
+import com.tommustbe12.housing.actions.impl.DropItemAction;
+import com.tommustbe12.housing.actions.impl.ChangeVelocityAction;
+import com.tommustbe12.housing.actions.impl.LaunchToTargetAction;
+import com.tommustbe12.housing.actions.impl.EnchantHeldItemAction;
+import com.tommustbe12.housing.actions.impl.RandomAction;
 import com.tommustbe12.housing.util.ItemStackSerialization;
 import com.tommustbe12.housing.actions.impl.GiveExpLevelsAction;
 import com.tommustbe12.housing.actions.impl.RunFunctionAction;
@@ -98,6 +103,28 @@ public final class SimpleActionSerializer implements ActionSerializer {
             out.put("mode", gm.modeName());
         } else if (action instanceof SetCompassTargetAction c) {
             out.put("dir", c.directionName());
+        } else if (action instanceof DropItemAction drop) {
+            out.put("item", drop.item() == null ? "" : ItemStackSerialization.toBase64(drop.item()));
+            out.put("amount", drop.amount());
+            out.put("where", drop.where().name());
+            out.put("x", drop.x());
+            out.put("y", drop.y());
+            out.put("z", drop.z());
+        } else if (action instanceof ChangeVelocityAction vel) {
+            out.put("x", vel.x());
+            out.put("y", vel.y());
+            out.put("z", vel.z());
+        } else if (action instanceof LaunchToTargetAction launch) {
+            out.put("target", launch.target().name());
+            out.put("x", launch.x());
+            out.put("y", launch.y());
+            out.put("z", launch.z());
+            out.put("strength", launch.strength());
+        } else if (action instanceof EnchantHeldItemAction ench) {
+            out.put("enchant", ench.enchantKey());
+            out.put("level", ench.level());
+        } else if (action instanceof RandomAction rnd) {
+            out.put("types", rnd.types());
         } else if (action instanceof ConditionalAction cond) {
             out.put("matchAny", cond.matchAny());
             out.put("conditions", cond.conditions().stream().map(SimpleActionSerializer::serializeCondition).toList());

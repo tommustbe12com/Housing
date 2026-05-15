@@ -167,6 +167,11 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isPickSlotTitle(title)
                 || actionsEditor.isCompassTitle(title)
                 || actionsEditor.isGamemodeTitle(title)
+                || actionsEditor.isDropItemTitle(title)
+                || actionsEditor.isVelocityTitle(title)
+                || actionsEditor.isLaunchTitle(title)
+                || actionsEditor.isEnchantTitle(title)
+                || actionsEditor.isRandomTitle(title)
                 || actionsEditor.isPlaySoundTitle(title)
                 || functionsGui.isTitle(title)
                 || (regionsGui != null && regionsGui.isTitle(title))
@@ -244,6 +249,26 @@ public final class HouseItemListener implements Listener {
         }
         if (actionsEditor.isGamemodeTitle(title)) {
             actionsEditor.handleGamemodeClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isDropItemTitle(title)) {
+            actionsEditor.handleDropItemClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isVelocityTitle(title)) {
+            actionsEditor.handleVelocityClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isLaunchTitle(title)) {
+            actionsEditor.handleLaunchClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isEnchantTitle(title)) {
+            actionsEditor.handleEnchantClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isRandomTitle(title)) {
+            actionsEditor.handleRandomClick(player, clicked);
             return;
         }
         if (actionsEditor.isMenuPickerTitle(title)) {
@@ -652,6 +677,11 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isPickSlotTitle(title)
                 || actionsEditor.isCompassTitle(title)
                 || actionsEditor.isGamemodeTitle(title)
+                || actionsEditor.isDropItemTitle(title)
+                || actionsEditor.isVelocityTitle(title)
+                || actionsEditor.isLaunchTitle(title)
+                || actionsEditor.isEnchantTitle(title)
+                || actionsEditor.isRandomTitle(title)
                 || functionsGui.isTitle(title)
                 || (regionsGui != null && regionsGui.isTitle(title))
                 || (conditionalGui != null && conditionalGui.isTitle(title))

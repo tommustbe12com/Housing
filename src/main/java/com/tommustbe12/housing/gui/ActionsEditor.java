@@ -44,6 +44,11 @@ public final class ActionsEditor {
     private static final String TITLE_PICK_SLOT = "Pick Slot";
     private static final String TITLE_COMPASS = "Compass Target";
     private static final String TITLE_GAMEMODE = "Pick Gamemode";
+    private static final String TITLE_DROP_ITEM = "Drop Item";
+    private static final String TITLE_VELOCITY = "Change Velocity";
+    private static final String TITLE_LAUNCH = "Launch To Target";
+    private static final String TITLE_ENCHANT = "Enchant Held Item";
+    private static final String TITLE_RANDOM = "Random Action";
     private static final String TITLE_CHANGE_VARIABLE = "Edit Stat Change";
     private static final String TITLE_PLAY_SOUND = "Play Sound";
     private static final String TITLE_SOUNDS = "Sounds";
@@ -125,6 +130,11 @@ public final class ActionsEditor {
     public boolean isPickSlotTitle(String title) { return TITLE_PICK_SLOT.equals(title); }
     public boolean isCompassTitle(String title) { return TITLE_COMPASS.equals(title); }
     public boolean isGamemodeTitle(String title) { return TITLE_GAMEMODE.equals(title); }
+    public boolean isDropItemTitle(String title) { return TITLE_DROP_ITEM.equals(title); }
+    public boolean isVelocityTitle(String title) { return TITLE_VELOCITY.equals(title); }
+    public boolean isLaunchTitle(String title) { return TITLE_LAUNCH.equals(title); }
+    public boolean isEnchantTitle(String title) { return TITLE_ENCHANT.equals(title); }
+    public boolean isRandomTitle(String title) { return TITLE_RANDOM.equals(title); }
 
     public void openEventActions(Player player, UUID owner, HouseSlot slot, String eventKey, Runnable back) {
         Session session = Session.forHouseEvent(owner, slot, eventKey.toLowerCase(Locale.ROOT), back,
@@ -341,6 +351,24 @@ public final class ActionsEditor {
             });
             case COMPASS -> openCompassGui(player, session);
             case GRASS_BLOCK -> openGamemodeGui(player, session);
+            case DISPENSER -> {
+                // Page 1 uses dispenser for Random Action, page 2 uses dispenser for Drop Item.
+                String t = player.getOpenInventory().getTitle();
+                boolean page2 = t != null && t.startsWith(TITLE_ADD_PREFIX) && t.contains("(2/2)");
+                if (page2) {
+                    session.dropItemStack = null;
+                    session.dropAmount = 1;
+                    session.dropWhere = DropItemAction.Where.PLAYER;
+                    session.dropX = session.dropY = session.dropZ = 0;
+                    openDropItemGui(player, session);
+                } else {
+                    session.randomTypes.clear();
+                    openRandomGui(player, session);
+                }
+            }
+            case SLIME_BLOCK -> { session.velX = 0; session.velY = 0; session.velZ = 0; openVelocityGui(player, session); }
+            case FIREWORK_ROCKET -> { session.launchTarget = LaunchToTargetAction.Target.EDITOR; session.launchStrength = 1.0; openLaunchGui(player, session); }
+            case ENCHANTED_BOOK -> { session.enchantKey = "sharpness"; session.enchantLevel = 1; openEnchantGui(player, session); }
         }
     }
 
@@ -392,6 +420,59 @@ public final class ActionsEditor {
         inv.setItem(12, named(Material.ENDER_EYE, "§bADVENTURE", List.of("§7Click to select")));
         inv.setItem(14, named(Material.FEATHER, "§eSPECTATOR", List.of("§7Click to select")));
         inv.setItem(16, named(Material.DIAMOND_PICKAXE, "§dCREATIVE", List.of("§7Click to select")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openDropItemGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_DROP_ITEM);
+        fill(inv);
+        inv.setItem(11, named(Material.PAPER, "§ePick Item", List.of("§7Place the item in the center slot.")));
+        inv.setItem(13, session.dropItemStack == null ? null : session.dropItemStack);
+        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.dropAmount, List.of("§7Click to edit in chat.")));
+        inv.setItem(21, named(Material.COMPASS, "§bWhere: §f" + session.dropWhere.name(), List.of("§7Click to cycle.")));
+        inv.setItem(22, named(Material.OAK_SIGN, "§eCoords: §f" + session.dropX + "," + session.dropY + "," + session.dropZ, List.of("§7Used only for COORDS.", "§7Click to edit in chat.")));
+        inv.setItem(23, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openVelocityGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_VELOCITY);
+        fill(inv);
+        inv.setItem(13, named(Material.SLIME_BLOCK, "§aVelocity", List.of("§7Current: §f" + session.velX + "," + session.velY + "," + session.velZ, "§7Click to edit in chat.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openLaunchGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_LAUNCH);
+        fill(inv);
+        inv.setItem(11, named(Material.COMPASS, "§eTarget: §f" + session.launchTarget.name(), List.of("§7Click to cycle.")));
+        inv.setItem(13, named(Material.OAK_SIGN, "§eCoords", List.of("§7" + session.launchX + "," + session.launchY + "," + session.launchZ, "§7Used only for COORDS.", "§7Click to edit in chat.")));
+        inv.setItem(15, named(Material.NAME_TAG, "§aStrength: §f" + session.launchStrength, List.of("§7Click to edit in chat.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openEnchantGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_ENCHANT);
+        fill(inv);
+        inv.setItem(11, named(Material.ENCHANTED_BOOK, "§dEnchant", List.of("§7Key: §f" + session.enchantKey, "§7Click to edit in chat (ex: sharpness).")));
+        inv.setItem(15, named(Material.NAME_TAG, "§aLevel: §f" + session.enchantLevel, List.of("§7Click to edit in chat.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openRandomGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_RANDOM);
+        fill(inv);
+        String current = session.randomTypes.isEmpty() ? "(none)" : String.join(",", session.randomTypes);
+        inv.setItem(13, named(Material.DISPENSER, "§eRandom Pool", List.of("§7" + current, "§7Click to toggle safe defaults.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
         player.openInventory(inv);
     }
@@ -592,6 +673,156 @@ public final class ActionsEditor {
         session.list().actions().add(new SetGamemodeAction(new com.tommustbe12.housing.groups.HouseGroupsService(plugin, houses), picked));
         save(session);
         openList(player, session);
+    }
+
+    public void handleDropItemClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_DROP_ITEM.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.NAME_TAG) {
+            prompt(player, "Amount:", msg -> {
+                session.dropAmount = Math.max(1, Integer.parseInt(msg.trim()));
+                openDropItemGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.COMPASS) {
+            DropItemAction.Where[] vals = DropItemAction.Where.values();
+            int idx = (session.dropWhere.ordinal() + 1) % vals.length;
+            session.dropWhere = vals[idx];
+            openDropItemGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.OAK_SIGN) {
+            prompt(player, "Coords x,y,z:", msg -> {
+                String[] p = msg.split(",", 3);
+                session.dropX = Double.parseDouble(p[0].trim());
+                session.dropY = Double.parseDouble(p[1].trim());
+                session.dropZ = Double.parseDouble(p[2].trim());
+                openDropItemGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            ItemStack picked = player.getOpenInventory().getTopInventory().getItem(13);
+            if (picked == null || picked.getType().isAir()) {
+                player.sendMessage("§cPut an item in the middle slot.");
+                return;
+            }
+            session.list().actions().add(new DropItemAction(houses, picked.clone(), session.dropAmount, session.dropWhere, session.dropX, session.dropY, session.dropZ));
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleVelocityClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_VELOCITY.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.SLIME_BLOCK) {
+            prompt(player, "Velocity x,y,z:", msg -> {
+                String[] p = msg.split(",", 3);
+                session.velX = Double.parseDouble(p[0].trim());
+                session.velY = Double.parseDouble(p[1].trim());
+                session.velZ = Double.parseDouble(p[2].trim());
+                openVelocityGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            session.list().actions().add(new ChangeVelocityAction(session.velX, session.velY, session.velZ));
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleLaunchClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_LAUNCH.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.COMPASS) {
+            LaunchToTargetAction.Target[] vals = LaunchToTargetAction.Target.values();
+            int idx = (session.launchTarget.ordinal() + 1) % vals.length;
+            session.launchTarget = vals[idx];
+            openLaunchGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.OAK_SIGN) {
+            prompt(player, "Coords x,y,z:", msg -> {
+                String[] p = msg.split(",", 3);
+                session.launchX = Double.parseDouble(p[0].trim());
+                session.launchY = Double.parseDouble(p[1].trim());
+                session.launchZ = Double.parseDouble(p[2].trim());
+                openLaunchGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.NAME_TAG) {
+            prompt(player, "Strength:", msg -> {
+                session.launchStrength = Double.parseDouble(msg.trim());
+                openLaunchGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            session.list().actions().add(new LaunchToTargetAction(houses, session.launchTarget, session.launchX, session.launchY, session.launchZ, session.launchStrength));
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleEnchantClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_ENCHANT.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.ENCHANTED_BOOK) {
+            prompt(player, "Enchant key (ex: sharpness):", msg -> {
+                session.enchantKey = msg.trim().toLowerCase(java.util.Locale.ROOT);
+                openEnchantGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.NAME_TAG) {
+            prompt(player, "Level:", msg -> {
+                session.enchantLevel = Math.max(1, Integer.parseInt(msg.trim()));
+                openEnchantGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            session.list().actions().add(new EnchantHeldItemAction(session.enchantKey, session.enchantLevel));
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleRandomClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_RANDOM.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.DISPENSER) {
+            // Toggle a small safe pool
+            if (session.randomTypes.isEmpty()) session.randomTypes.addAll(java.util.List.of("full_heal", "give_exp_levels", "clear_potion_effects"));
+            else session.randomTypes.clear();
+            openRandomGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            session.list().actions().add(new RandomAction(session.randomTypes));
+            save(session);
+            openList(player, session);
+        }
     }
 
     public void handleMenuPickerClick(Player player, ItemStack clicked) {
@@ -1254,6 +1485,11 @@ public final class ActionsEditor {
             case "remove_item" -> Material.HOPPER;
             case "set_compass_target" -> Material.COMPASS;
             case "set_gamemode" -> Material.GRASS_BLOCK;
+            case "drop_item" -> Material.DISPENSER;
+            case "change_velocity" -> Material.SLIME_BLOCK;
+            case "launch_to_target" -> Material.FIREWORK_ROCKET;
+            case "enchant_held_item" -> Material.ENCHANTED_BOOK;
+            case "random_action" -> Material.DISPENSER;
             default -> Material.BOOK;
         };
         List<String> lore = new ArrayList<>();
@@ -1298,7 +1534,7 @@ public final class ActionsEditor {
             lore.add("§7vol: §f" + s.volume() + " §7pitch: §f" + s.pitch());
         }
         if (action instanceof ChangeTeamAction t) {
-            lore.add("Â§7teamId: Â§f" + (t.teamId() == null ? "" : t.teamId().toString()));
+            lore.add("§7teamId: §f" + (t.teamId() == null ? "" : t.teamId().toString()));
         }
         return lore;
     }
@@ -1372,6 +1608,22 @@ public final class ActionsEditor {
 
         private SetCompassTargetAction.Direction compassDir = SetCompassTargetAction.Direction.N;
         private org.bukkit.GameMode gamemode = org.bukkit.GameMode.ADVENTURE;
+
+        private ItemStack dropItemStack;
+        private int dropAmount = 1;
+        private DropItemAction.Where dropWhere = DropItemAction.Where.PLAYER;
+        private double dropX, dropY, dropZ;
+
+        private double velX, velY, velZ;
+
+        private LaunchToTargetAction.Target launchTarget = LaunchToTargetAction.Target.EDITOR;
+        private double launchX, launchY, launchZ;
+        private double launchStrength = 1.0;
+
+        private String enchantKey = "sharpness";
+        private int enchantLevel = 1;
+
+        private java.util.List<String> randomTypes = new java.util.ArrayList<>();
 
         private Session(Kind kind, String key, UUID owner, HouseSlot slot, Map<String, ActionList> events, ActionList standalone, Consumer<ActionList> onSave, Runnable back) {
             this.kind = kind;
