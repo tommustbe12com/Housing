@@ -52,7 +52,8 @@ public final class ItemEditGui {
         this.codec = new SimpleActionCodec(placeholders, vars, houses, (ctx, fn, global) -> {},
                 new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin),
                 new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses),
-                new com.tommustbe12.housing.teams.TeamsService(plugin));
+                new com.tommustbe12.housing.teams.TeamsService(plugin),
+                new com.tommustbe12.housing.groups.HouseGroupsService(plugin, houses));
     }
 
     public boolean isTitle(String title) {

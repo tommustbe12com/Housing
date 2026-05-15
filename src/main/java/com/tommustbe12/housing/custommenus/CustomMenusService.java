@@ -29,7 +29,8 @@ public final class CustomMenusService {
         this.codec = new SimpleActionCodec(ph, vars, houses, (ctx, fn, global) -> {},
                 new InventoryLayoutsService(plugin),
                 this,
-                new com.tommustbe12.housing.teams.TeamsService(plugin));
+                new com.tommustbe12.housing.teams.TeamsService(plugin),
+                new com.tommustbe12.housing.groups.HouseGroupsService(plugin, houses));
     }
 
     public List<CustomMenu> get(UUID owner, HouseSlot slot) {

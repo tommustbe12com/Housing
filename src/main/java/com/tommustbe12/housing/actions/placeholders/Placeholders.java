@@ -88,12 +88,27 @@ public final class Placeholders {
             File file = new File(dir, ctx.houseOwner() + "-" + ctx.houseSlot().index() + ".yml");
             if (!file.exists()) return "";
             YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+            boolean show = yaml.getBoolean("settings.showTagsEverywhere", true);
+            if (!show) return "";
             String teamId = yaml.getString("players." + playerId, "");
             if (teamId == null || teamId.isBlank()) return "";
             String base = "teams." + teamId + ".";
             if ("name".equalsIgnoreCase(key)) return yaml.getString(base + "name", "");
-            if ("tag".equalsIgnoreCase(key)) return yaml.getString(base + "tag", "");
-            if ("color".equalsIgnoreCase(key)) return yaml.getString(base + "color", "");
+            if ("tag".equalsIgnoreCase(key)) {
+                String tag = yaml.getString(base + "tag", "");
+                if (tag == null || tag.isBlank()) return "";
+                String colorName = yaml.getString(base + "color", "WHITE");
+                org.bukkit.ChatColor c;
+                try { c = org.bukkit.ChatColor.valueOf(colorName); } catch (Exception e) { c = org.bukkit.ChatColor.WHITE; }
+                return c + tag + org.bukkit.ChatColor.RESET;
+            }
+            if ("color".equalsIgnoreCase(key)) {
+                String colorName = yaml.getString(base + "color", "WHITE");
+                org.bukkit.ChatColor c;
+                try { c = org.bukkit.ChatColor.valueOf(colorName); } catch (Exception e) { c = org.bukkit.ChatColor.WHITE; }
+                // Return the actual color code (e.g. §c), not the enum name.
+                return c.toString();
+            }
             return "";
         } catch (Exception e) {
             return "";

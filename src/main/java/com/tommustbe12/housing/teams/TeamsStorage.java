@@ -28,6 +28,8 @@ public final class TeamsStorage {
         if (!file.exists()) return out;
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
 
+        out.setShowTagsEverywhere(yaml.getBoolean("settings.showTagsEverywhere", true));
+
         ConfigurationSection teamsSec = yaml.getConfigurationSection("teams");
         if (teamsSec != null) {
             for (String key : teamsSec.getKeys(false)) {
@@ -66,6 +68,8 @@ public final class TeamsStorage {
         File file = fileFor(owner, slot);
         YamlConfiguration yaml = new YamlConfiguration();
 
+        yaml.set("settings.showTagsEverywhere", data.showTagsEverywhere());
+
         ConfigurationSection teamsSec = yaml.createSection("teams");
         for (HouseTeam team : data.teams().values()) {
             if (team == null) continue;
@@ -93,4 +97,3 @@ public final class TeamsStorage {
         return new File(dir, owner + "-" + slot.index() + ".yml");
     }
 }
-

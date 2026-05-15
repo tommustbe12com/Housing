@@ -53,6 +53,7 @@ public final class TeamsService {
     }
 
     public String tagForDisplay(UUID owner, HouseSlot slot, UUID playerId) {
+        if (!teams(owner, slot).showTagsEverywhere()) return "";
         HouseTeam t = teamFor(owner, slot, playerId);
         if (t == null) return "";
         String tag = t.tag();
@@ -80,4 +81,3 @@ public final class TeamsService {
         return ta.friendlyFire();
     }
 }
-

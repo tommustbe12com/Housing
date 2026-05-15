@@ -33,7 +33,8 @@ public final class RegionsService {
         this.codec = new SimpleActionCodec(placeholders, variables, houses, (ctx, fn, global) -> {},
                 new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(plugin),
                 new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses),
-                new com.tommustbe12.housing.teams.TeamsService(plugin));
+                new com.tommustbe12.housing.teams.TeamsService(plugin),
+                new com.tommustbe12.housing.groups.HouseGroupsService(plugin, houses));
     }
 
     public SimpleActionCodec codec() { return codec; }

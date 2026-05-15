@@ -31,11 +31,19 @@ import java.util.function.Consumer;
 
 public final class ActionsEditor {
     private static final String TITLE_PREFIX = "Actions: ";
-    private static final String TITLE_ADD = "Add Action";
+    private static final String TITLE_ADD_PREFIX = "Add Action";
+    // Back-compat for older code paths that still use TITLE_ADD.
+    private static final String TITLE_ADD = TITLE_ADD_PREFIX;
     private static final String TITLE_PICK_FUNCTION = "Choose Function";
     private static final String TITLE_PICK_LAYOUT = "Choose Layout";
     private static final String TITLE_PICK_MENU = "Choose Custom Menu";
     private static final String TITLE_PICK_TEAM = "Choose Team";
+    private static final String TITLE_PICK_GROUP = "Choose Group";
+    private static final String TITLE_GIVE_ITEM = "Give Item";
+    private static final String TITLE_REMOVE_ITEM = "Remove Item";
+    private static final String TITLE_PICK_SLOT = "Pick Slot";
+    private static final String TITLE_COMPASS = "Compass Target";
+    private static final String TITLE_GAMEMODE = "Pick Gamemode";
     private static final String TITLE_CHANGE_VARIABLE = "Edit Stat Change";
     private static final String TITLE_PLAY_SOUND = "Play Sound";
     private static final String TITLE_SOUNDS = "Sounds";
@@ -81,7 +89,7 @@ public final class ActionsEditor {
     }
 
     public boolean isAddTitle(String title) {
-        return TITLE_ADD.equals(title);
+        return title != null && title.startsWith(TITLE_ADD_PREFIX);
     }
 
     public boolean isFunctionPickerTitle(String title) {
@@ -96,6 +104,10 @@ public final class ActionsEditor {
         return TITLE_PICK_TEAM.equals(title);
     }
 
+    public boolean isGroupPickerTitle(String title) {
+        return TITLE_PICK_GROUP.equals(title);
+    }
+
     public boolean isMenuPickerTitle(String title) {
         return TITLE_PICK_MENU.equals(title);
     }
@@ -107,6 +119,12 @@ public final class ActionsEditor {
     public boolean isPlaySoundTitle(String title) {
         return TITLE_PLAY_SOUND.equals(title) || TITLE_SOUNDS.equals(title) || TITLE_PICK_SOUND.equals(title);
     }
+
+    public boolean isGiveItemTitle(String title) { return TITLE_GIVE_ITEM.equals(title); }
+    public boolean isRemoveItemTitle(String title) { return TITLE_REMOVE_ITEM.equals(title); }
+    public boolean isPickSlotTitle(String title) { return TITLE_PICK_SLOT.equals(title); }
+    public boolean isCompassTitle(String title) { return TITLE_COMPASS.equals(title); }
+    public boolean isGamemodeTitle(String title) { return TITLE_GAMEMODE.equals(title); }
 
     public void openEventActions(Player player, UUID owner, HouseSlot slot, String eventKey, Runnable back) {
         Session session = Session.forHouseEvent(owner, slot, eventKey.toLowerCase(Locale.ROOT), back,
@@ -162,29 +180,42 @@ public final class ActionsEditor {
         if (clicked == null || clicked.getType().isAir()) return;
 
         if (clicked.getType() == Material.ARROW) {
+            // In the Add Action GUI, slot 53 is used for page navigation.
+            String t = player.getOpenInventory().getTitle();
+            if (t != null && t.startsWith(TITLE_ADD_PREFIX)) {
+                int raw = player.getOpenInventory().getTopInventory().first(clicked);
+                if (raw == 53) {
+                    boolean page2 = t.contains("(2/2)");
+                    openAddPicker(player, page2 ? 1 : 2);
+                    return;
+                }
+            }
             openList(player, session);
             return;
         }
 
+        String title = player.getOpenInventory().getTitle();
+        boolean page2 = title != null && title.startsWith(TITLE_ADD_PREFIX) && title.contains("(2/2)");
+
         ActionList list = session.list();
         switch (clicked.getType()) {
-            case PAPER -> prompt(player, "Enter message:", msg -> {
+            case FILLED_MAP -> prompt(player, "Enter message:", msg -> {
                 list.actions().add(new SendChatMessageAction(placeholders, msg));
                 save(session);
                 openList(player, session);
             });
-            case CLOCK -> prompt(player, "Enter actionbar text:", msg -> {
+            case WRITABLE_BOOK -> prompt(player, "Enter actionbar text:", msg -> {
                 list.actions().add(new DisplayActionBarAction(placeholders, msg));
                 save(session);
                 openList(player, session);
             });
-            case NAME_TAG -> prompt(player, "Enter title text (use | for subtitle optional):", msg -> {
+            case BOOK -> prompt(player, "Enter title text (use | for subtitle optional):", msg -> {
                 String[] parts = msg.split("\\|", 2);
                 list.actions().add(new DisplayTitleAction(placeholders, parts[0], parts.length > 1 ? parts[1] : "", 10, 40, 10));
                 save(session);
                 openList(player, session);
             });
-            case TOTEM_OF_UNDYING -> {
+            case GOLDEN_APPLE -> {
                 list.actions().add(new FullHealAction());
                 save(session);
                 openList(player, session);
@@ -194,7 +225,7 @@ public final class ActionsEditor {
                 save(session);
                 openList(player, session);
             }
-            case BARRIER -> {
+            case STONE -> {
                 list.actions().add(new ResetInventoryAction());
                 save(session);
                 openList(player, session);
@@ -204,7 +235,7 @@ public final class ActionsEditor {
                 save(session);
                 openList(player, session);
             }
-            case COMPARATOR -> {
+            case FEATHER -> {
                 ChangeVariableAction action = new ChangeVariableAction(variables, placeholders, "%stat.kills%", "1", ChangeVariableAction.Operation.ADD);
                 list.actions().add(action);
                 session.replaceIndex = list.actions().size() - 1;
@@ -219,7 +250,7 @@ public final class ActionsEditor {
                 save(session);
                 openList(player, session);
             });
-            case MILK_BUCKET -> {
+            case GLASS_BOTTLE -> {
                 list.actions().add(new ClearPotionEffectsAction());
                 save(session);
                 openList(player, session);
@@ -231,14 +262,24 @@ public final class ActionsEditor {
                 save(session);
                 openList(player, session);
             });
-            case REPEATER -> openFunctionPicker(player);
-            case CHEST -> openLayoutPicker(player);
-            case WHITE_BANNER -> openTeamPicker(player);
-            case ITEM_FRAME -> {
-                list.actions().add(new OpenCustomMenuAction(new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), null));
-                session.replaceIndex = list.actions().size() - 1;
-                save(session);
-                openMenuPicker(player);
+            case ACTIVATOR_RAIL -> openFunctionPicker(player);
+            case IRON_AXE -> openLayoutPicker(player);
+            case OAK_SIGN -> openTeamPicker(player);
+            case CHEST -> {
+                // Page 1: Give Item editor. Page 2: Display Menu (custom menu picker).
+                if (page2) {
+                    list.actions().add(new OpenCustomMenuAction(new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), null));
+                    session.replaceIndex = list.actions().size() - 1;
+                    save(session);
+                    openMenuPicker(player);
+                } else {
+                    session.replaceIndex = null;
+                    session.giveItemStack = null;
+                    session.giveAmount = 1;
+                    session.giveSlot = null;
+                    session.giveReplace = false;
+                    openGiveItemGui(player, session);
+                }
             }
             case NOTE_BLOCK -> {
                 list.actions().add(new PlaySoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.0f));
@@ -252,7 +293,7 @@ public final class ActionsEditor {
                 save(session);
                 openPlaySoundGui(player, session);
             }
-            case STRUCTURE_BLOCK -> {
+            case REDSTONE -> {
                 if (conditionalGui == null) {
                     player.sendMessage("§cConditional editor not available.");
                     return;
@@ -265,7 +306,94 @@ public final class ActionsEditor {
                     save(session);
                 }, () -> openList(player, session));
             }
+            case PLAYER_HEAD -> openGroupPicker(player);
+            case DANDELION -> prompt(player, "Set max health:", msg -> {
+                list.actions().add(new ChangeMaxHealthAction(Double.parseDouble(msg.trim())));
+                save(session);
+                openList(player, session);
+            });
+            case HOPPER -> {
+                session.replaceIndex = null;
+                session.removeItemStack = null;
+                session.removeAmount = 1;
+                openRemoveItemGui(player, session);
+            }
+            case APPLE -> prompt(player, "Set health:", msg -> {
+                list.actions().add(new ChangeHealthAction(Double.parseDouble(msg.trim())));
+                save(session);
+                openList(player, session);
+            });
+            case BEEF -> prompt(player, "Set hunger (0-20):", msg -> {
+                list.actions().add(new ChangeHungerLevelAction(Integer.parseInt(msg.trim())));
+                save(session);
+                openList(player, session);
+            });
+            case ENDER_PEARL -> {
+                // Default to house spawn, editable later.
+                list.actions().add(new TeleportPlayerAction(houses, TeleportPlayerAction.Mode.HOUSE_SPAWN, 0, 0, 0, 0f, 0f));
+                save(session);
+                openList(player, session);
+            }
+            case RED_BED -> prompt(player, "Pause ticks:", msg -> {
+                list.actions().add(new PauseExecutionAction(Long.parseLong(msg.trim())));
+                save(session);
+                openList(player, session);
+            });
+            case COMPASS -> openCompassGui(player, session);
+            case GRASS_BLOCK -> openGamemodeGui(player, session);
         }
+    }
+
+    private void openGiveItemGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_GIVE_ITEM);
+        fill(inv);
+        inv.setItem(11, named(Material.PAPER, "§ePick Item", List.of("§7Place the item in the center slot.")));
+        inv.setItem(13, session.giveItemStack == null ? null : session.giveItemStack);
+        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.giveAmount, List.of("§7Click to edit in chat.")));
+        inv.setItem(21, named(Material.CHEST, "§bSlot: §f" + (session.giveSlot == null ? "Any" : session.giveSlot), List.of("§7Click to pick slot.")));
+        inv.setItem(22, named(Material.LEVER, "§dReplace Slot: §f" + (session.giveReplace ? "ON" : "OFF"), List.of("§7Click to toggle.")));
+        inv.setItem(23, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openRemoveItemGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_REMOVE_ITEM);
+        fill(inv);
+        inv.setItem(11, named(Material.PAPER, "§ePick Item", List.of("§7Place the item in the center slot.")));
+        inv.setItem(13, session.removeItemStack == null ? null : session.removeItemStack);
+        inv.setItem(15, named(Material.NAME_TAG, "§aAmount: §f" + session.removeAmount, List.of("§7Click to edit in chat.")));
+        inv.setItem(23, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Save action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openPickSlotGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_SLOT);
+        fill(inv);
+        for (int i = 0; i < 45; i++) inv.setItem(i, named(Material.GRAY_STAINED_GLASS_PANE, "§7Slot " + i, List.of("§7Click to select.")));
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private void openCompassGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_COMPASS);
+        fill(inv);
+        inv.setItem(13, named(Material.COMPASS, "§eDirection: §f" + session.compassDir.name(), List.of("§7Click to cycle.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openGamemodeGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_GAMEMODE);
+        fill(inv);
+        inv.setItem(10, named(Material.GRASS_BLOCK, "§aSURVIVAL", List.of("§7Click to select")));
+        inv.setItem(12, named(Material.ENDER_EYE, "§bADVENTURE", List.of("§7Click to select")));
+        inv.setItem(14, named(Material.FEATHER, "§eSPECTATOR", List.of("§7Click to select")));
+        inv.setItem(16, named(Material.DIAMOND_PICKAXE, "§dCREATIVE", List.of("§7Click to select")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
     }
 
     public void handleFunctionPickerClick(Player player, ItemStack clicked, org.bukkit.event.inventory.ClickType clickType) {
@@ -331,6 +459,141 @@ public final class ActionsEditor {
         openList(player, session);
     }
 
+    public void handleGroupPickerClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) {
+            openAddPicker(player);
+            return;
+        }
+        if (clicked.getType() != Material.PLAYER_HEAD) return;
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getDisplayName() == null) return;
+        String pickedName = stripColor(meta.getDisplayName());
+        com.tommustbe12.housing.groups.HouseGroupsService groups = new com.tommustbe12.housing.groups.HouseGroupsService(plugin, houses);
+        var data = groups.groups(session.owner, session.slot);
+        com.tommustbe12.housing.groups.HouseGroup picked = null;
+        for (var g : data.groups().values()) {
+            if (g != null && g.name().equalsIgnoreCase(pickedName)) { picked = g; break; }
+        }
+        if (picked == null) return;
+        session.list().actions().add(new com.tommustbe12.housing.actions.impl.ChangeGroupAction(groups, picked.id()));
+        save(session);
+        openList(player, session);
+    }
+
+    public void handleGiveItemClick(Player player, int rawSlot, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (!TITLE_GIVE_ITEM.equals(player.getOpenInventory().getTitle())) return;
+
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.LEVER) {
+            session.giveReplace = !session.giveReplace;
+            openGiveItemGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.CHEST) {
+            openPickSlotGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.NAME_TAG) {
+            prompt(player, "Amount:", msg -> {
+                session.giveAmount = Math.max(1, Integer.parseInt(msg.trim()));
+                openGiveItemGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            // read selected item from slot 13
+            ItemStack picked = player.getOpenInventory().getTopInventory().getItem(13);
+            if (picked == null || picked.getType().isAir()) {
+                player.sendMessage("§cPut an item in the middle slot.");
+                return;
+            }
+            session.list().actions().add(new GiveItemAction(picked.clone(), session.giveAmount, session.giveSlot, session.giveReplace));
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleRemoveItemClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (!TITLE_REMOVE_ITEM.equals(player.getOpenInventory().getTitle())) return;
+
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.NAME_TAG) {
+            prompt(player, "Amount:", msg -> {
+                session.removeAmount = Math.max(1, Integer.parseInt(msg.trim()));
+                openRemoveItemGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            ItemStack picked = player.getOpenInventory().getTopInventory().getItem(13);
+            if (picked == null || picked.getType().isAir()) {
+                player.sendMessage("§cPut an item in the middle slot.");
+                return;
+            }
+            session.list().actions().add(new RemoveItemAction(picked.clone(), session.removeAmount));
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handlePickSlotClick(Player player, int rawSlot, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (!TITLE_PICK_SLOT.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked.getType() == Material.ARROW) { openGiveItemGui(player, session); return; }
+        if (rawSlot >= 0 && rawSlot < 45) {
+            session.giveSlot = rawSlot;
+            openGiveItemGui(player, session);
+        }
+    }
+
+    public void handleCompassClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_COMPASS.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.COMPASS) {
+            SetCompassTargetAction.Direction[] vals = SetCompassTargetAction.Direction.values();
+            int idx = (session.compassDir.ordinal() + 1) % vals.length;
+            session.compassDir = vals[idx];
+            openCompassGui(player, session);
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            session.list().actions().add(new SetCompassTargetAction(session.compassDir));
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handleGamemodeClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_GAMEMODE.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        org.bukkit.GameMode picked = null;
+        if (clicked.getType() == Material.GRASS_BLOCK) picked = org.bukkit.GameMode.SURVIVAL;
+        else if (clicked.getType() == Material.ENDER_EYE) picked = org.bukkit.GameMode.ADVENTURE;
+        else if (clicked.getType() == Material.FEATHER) picked = org.bukkit.GameMode.SPECTATOR;
+        else if (clicked.getType() == Material.DIAMOND_PICKAXE) picked = org.bukkit.GameMode.CREATIVE;
+        if (picked == null) return;
+        session.list().actions().add(new SetGamemodeAction(new com.tommustbe12.housing.groups.HouseGroupsService(plugin, houses), picked));
+        save(session);
+        openList(player, session);
+    }
+
     public void handleMenuPickerClick(Player player, ItemStack clicked) {
         Session session = sessions.get(player.getUniqueId());
         if (session == null) return;
@@ -368,25 +631,50 @@ public final class ActionsEditor {
     }
 
     private void openAddPicker(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 54, TITLE_ADD);
+        openAddPicker(player, 1);
+    }
+
+    private void openAddPicker(Player player, int page) {
+        int p = page <= 1 ? 1 : 2;
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_ADD_PREFIX + " (" + p + "/2)");
         fill(inv);
-        inv.setItem(10, named(Material.PAPER, "§eChat Message", List.of("§7Send a message.")));
-        inv.setItem(11, named(Material.CLOCK, "§bAction Bar", List.of("§7Display actionbar.")));
-        inv.setItem(12, named(Material.NAME_TAG, "§dTitle", List.of("§7Display title/subtitle.")));
-        inv.setItem(13, named(Material.TOTEM_OF_UNDYING, "§aFull Heal", List.of("§7Heal player.")));
-        inv.setItem(14, named(Material.SKELETON_SKULL, "§cKill Player", List.of("§7Kill player.")));
-        inv.setItem(15, named(Material.BARRIER, "§cReset Inventory", List.of("§7Clear inventory.")));
-        inv.setItem(16, named(Material.OAK_DOOR, "§aSend To Hub", List.of("§7Teleport to hub.")));
-        inv.setItem(19, named(Material.COMPARATOR, "§6Change Variable", List.of("§7Set %stat.x%.")));
-        inv.setItem(20, named(Material.EXPERIENCE_BOTTLE, "§aGive Exp Levels", List.of("§7Give levels.")));
-        inv.setItem(21, named(Material.MILK_BUCKET, "§bClear Potion Effects", List.of("§7Remove all effects.")));
-        inv.setItem(22, named(Material.POTION, "§dApply Potion Effect", List.of("§7Give an effect.")));
-        inv.setItem(23, named(Material.REPEATER, "§fRun Function", List.of("§7Pick a function.")));
-        inv.setItem(24, named(Material.STRUCTURE_BLOCK, "§eConditional", List.of("§7GUI-based if/else.")));
-        inv.setItem(25, named(Material.CHEST, "§6Apply Inventory Layout", List.of("§7Pick a saved layout.")));
-        inv.setItem(26, named(Material.WHITE_BANNER, "§bChange Team", List.of("§7Pick a team for the player.")));
-        inv.setItem(28, named(Material.ITEM_FRAME, "§aOpen Custom Menu", List.of("§7Pick a custom GUI menu.")));
-        inv.setItem(29, named(Material.NOTE_BLOCK, "§aPlay Sound", List.of("§7Configure sound/volume/pitch.")));
+
+        if (p == 1) {
+            inv.setItem(10, named(Material.REDSTONE, "§eConditional", List.of("§7GUI-based if/else.")));
+            inv.setItem(11, named(Material.PLAYER_HEAD, "§eChange Player's Group", List.of("§7Pick a group for the player.")));
+            inv.setItem(12, named(Material.GOLDEN_APPLE, "§aFull Heal", List.of("§7Heal player.")));
+            inv.setItem(13, named(Material.BOOK, "§dDisplay Title", List.of("§7Display title/subtitle.")));
+            inv.setItem(14, named(Material.WRITABLE_BOOK, "§bDisplay Action Bar", List.of("§7Display actionbar.")));
+            inv.setItem(15, named(Material.STONE, "§cReset Inventory", List.of("§7Clear inventory.")));
+            inv.setItem(16, named(Material.DANDELION, "§eChange Max Health", List.of("§7Set max health.")));
+            inv.setItem(19, named(Material.CHEST, "§aGive Item", List.of("§7GUI item picker.")));
+            inv.setItem(20, named(Material.HOPPER, "§cRemove Item", List.of("§7GUI item picker.")));
+            inv.setItem(21, named(Material.FILLED_MAP, "§eChat Message", List.of("§7Send a message.")));
+            inv.setItem(22, named(Material.POTION, "§dApply Potion Effect", List.of("§7GUI-based effect editor.")));
+            inv.setItem(23, named(Material.GLASS_BOTTLE, "§bClear Potion Effects", List.of("§7Remove all effects.")));
+            inv.setItem(24, named(Material.EXPERIENCE_BOTTLE, "§aGive Exp Levels", List.of("§7Give levels.")));
+            inv.setItem(25, named(Material.FEATHER, "§6Change Variable", List.of("§7Set %stat.x%.")));
+            inv.setItem(26, named(Material.ENDER_PEARL, "§bTeleport Player", List.of("§7Teleport editor.")));
+            inv.setItem(28, named(Material.NOTE_BLOCK, "§aPlay Sound", List.of("§7Configure sound/volume/pitch.")));
+            inv.setItem(29, named(Material.COMPASS, "§eSet Compass Target", List.of("§7GUI-based direction.")));
+            inv.setItem(30, named(Material.GRASS_BLOCK, "§eSet Gamemode", List.of("§7GUI-based.")));
+            inv.setItem(31, named(Material.APPLE, "§cChange Health", List.of("§7Set health.")));
+            inv.setItem(32, named(Material.BEEF, "§6Change Hunger Level", List.of("§7Set food level.")));
+            inv.setItem(33, named(Material.DISPENSER, "§eRandom Action", List.of("§7Configure random picker.")));
+            inv.setItem(53, named(Material.ARROW, "§7Next Page", List.of("§7Go to page 2.")));
+        } else {
+            inv.setItem(10, named(Material.ACTIVATOR_RAIL, "§fTrigger Function", List.of("§7Pick a function.")));
+            inv.setItem(11, named(Material.IRON_AXE, "§6Apply Inventory Layout", List.of("§7Pick a saved layout.")));
+            inv.setItem(12, named(Material.ENCHANTED_BOOK, "§dEnchant Held Item", List.of("§7Pick enchant + level.")));
+            inv.setItem(13, named(Material.RED_BED, "§cPause Execution", List.of("§7Wait ticks, then continue.")));
+            inv.setItem(14, named(Material.OAK_SIGN, "§bSet Player Team", List.of("§7Pick a team for the player.")));
+            inv.setItem(15, named(Material.CHEST, "§aDisplay Menu", List.of("§7Pick a custom GUI menu.")));
+            inv.setItem(16, named(Material.DISPENSER, "§eDrop Item", List.of("§7Drop item editor.")));
+            inv.setItem(19, named(Material.SLIME_BLOCK, "§aChange Velocity", List.of("§7Set velocity vector.")));
+            inv.setItem(20, named(Material.FIREWORK_ROCKET, "§bLaunch To Target", List.of("§7Launch towards a target.")));
+            inv.setItem(53, named(Material.ARROW, "§7Prev Page", List.of("§7Back to page 1.")));
+        }
+
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -423,6 +711,27 @@ public final class ActionsEditor {
         for (com.tommustbe12.housing.teams.HouseTeam t : teams.list(session.owner, session.slot)) {
             if (t == null) continue;
             inv.setItem(i++, named(Material.WHITE_BANNER, "§b" + t.name(), List.of("§7Click to select")));
+            if (i >= 45) break;
+        }
+        inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private void openGroupPicker(Player player) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (session.owner.getMostSignificantBits() == 0L && session.owner.getLeastSignificantBits() == 0L) {
+            player.sendMessage("§cGroups require a house context.");
+            return;
+        }
+        com.tommustbe12.housing.groups.HouseGroupsService groups = new com.tommustbe12.housing.groups.HouseGroupsService(plugin, houses);
+        var data = groups.groups(session.owner, session.slot);
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_GROUP);
+        fill(inv);
+        int i = 0;
+        for (var g : data.groupsInEditorOrder()) {
+            if (g == null) continue;
+            inv.setItem(i++, named(Material.PLAYER_HEAD, "§f" + g.name(), List.of("§7Click to select")));
             if (i >= 45) break;
         }
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return.")));
@@ -793,6 +1102,60 @@ public final class ActionsEditor {
             });
             return;
         }
+        if (action instanceof ChangeMaxHealthAction) {
+            ChangeMaxHealthAction mh = (ChangeMaxHealthAction) action;
+            prompt(player, "Set max health:", msg -> {
+                list.actions().set(index, new ChangeMaxHealthAction(Double.parseDouble(msg.trim())));
+                save(session);
+                openList(player, session);
+            });
+            return;
+        }
+        if (action instanceof ChangeHealthAction) {
+            prompt(player, "Set health:", msg -> {
+                list.actions().set(index, new ChangeHealthAction(Double.parseDouble(msg.trim())));
+                save(session);
+                openList(player, session);
+            });
+            return;
+        }
+        if (action instanceof ChangeHungerLevelAction) {
+            prompt(player, "Set hunger (0-20):", msg -> {
+                list.actions().set(index, new ChangeHungerLevelAction(Integer.parseInt(msg.trim())));
+                save(session);
+                openList(player, session);
+            });
+            return;
+        }
+        if (action instanceof PauseExecutionAction) {
+            PauseExecutionAction p = (PauseExecutionAction) action;
+            prompt(player, "Pause ticks:", msg -> {
+                list.actions().set(index, new PauseExecutionAction(Long.parseLong(msg.trim())));
+                save(session);
+                openList(player, session);
+            });
+            return;
+        }
+        if (action instanceof TeleportPlayerAction) {
+            TeleportPlayerAction tp = (TeleportPlayerAction) action;
+            prompt(player, "Teleport mode (HOUSE_SPAWN|CURRENT_EDITOR|COORDS) or coords x,y,z:", msg -> {
+                String raw = msg.trim();
+                if (raw.contains(",")) {
+                    String[] parts = raw.split(",", 3);
+                    double x = Double.parseDouble(parts[0].trim());
+                    double y = Double.parseDouble(parts[1].trim());
+                    double z = Double.parseDouble(parts[2].trim());
+                    list.actions().set(index, new TeleportPlayerAction(houses, TeleportPlayerAction.Mode.COORDS, x, y, z, 0f, 0f));
+                } else {
+                    TeleportPlayerAction.Mode mode;
+                    try { mode = TeleportPlayerAction.Mode.valueOf(raw.toUpperCase(Locale.ROOT)); } catch (Exception e) { mode = TeleportPlayerAction.Mode.HOUSE_SPAWN; }
+                    list.actions().set(index, new TeleportPlayerAction(houses, mode, tp.x(), tp.y(), tp.z(), tp.yaw(), tp.pitch()));
+                }
+                save(session);
+                openList(player, session);
+            });
+            return;
+        }
         if (action instanceof ApplyPotionEffectAction) {
             prompt(player, "Edit effect,duration,amp:", msg -> {
                 String[] parts = msg.split(",", 3);
@@ -850,7 +1213,9 @@ public final class ActionsEditor {
 
     private SimpleActionCodec newCodec() {
         return new SimpleActionCodec(placeholders, variables, houses, (ctx, fn, global) -> {}, inventoryLayouts,
-                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses), new com.tommustbe12.housing.teams.TeamsService(plugin));
+                new com.tommustbe12.housing.custommenus.CustomMenusService(plugin, houses),
+                new com.tommustbe12.housing.teams.TeamsService(plugin),
+                new com.tommustbe12.housing.groups.HouseGroupsService(plugin, houses));
     }
 
     private void prompt(Player player, String question, Consumer<String> onOk) {
@@ -863,22 +1228,32 @@ public final class ActionsEditor {
     private static ItemStack actionItem(Action action) {
         Material mat = switch (action.type()) {
             case "chat_message" -> Material.PAPER;
-            case "display_action_bar" -> Material.CLOCK;
-            case "display_title" -> Material.NAME_TAG;
-            case "full_heal" -> Material.TOTEM_OF_UNDYING;
+            case "display_action_bar" -> Material.WRITABLE_BOOK;
+            case "display_title" -> Material.BOOK;
+            case "full_heal" -> Material.GOLDEN_APPLE;
             case "kill_player" -> Material.SKELETON_SKULL;
-            case "reset_inventory" -> Material.BARRIER;
+            case "reset_inventory" -> Material.STONE;
             case "send_to_hub" -> Material.OAK_DOOR;
-            case "change_variable" -> Material.COMPARATOR;
+            case "change_variable" -> Material.FEATHER;
             case "give_exp_levels" -> Material.EXPERIENCE_BOTTLE;
             case "clear_potion_effects" -> Material.MILK_BUCKET;
             case "apply_potion_effect" -> Material.POTION;
-            case "run_function" -> Material.REPEATER;
-            case "conditional" -> Material.STRUCTURE_BLOCK;
-            case "apply_inventory_layout" -> Material.CHEST;
-            case "open_custom_menu" -> Material.ITEM_FRAME;
+            case "run_function" -> Material.ACTIVATOR_RAIL;
+            case "conditional" -> Material.REDSTONE;
+            case "apply_inventory_layout" -> Material.IRON_AXE;
+            case "open_custom_menu" -> Material.CHEST;
             case "play_sound" -> Material.NOTE_BLOCK;
-            case "change_team" -> Material.WHITE_BANNER;
+            case "change_team" -> Material.OAK_SIGN;
+            case "change_group" -> Material.PLAYER_HEAD;
+            case "pause_execution" -> Material.RED_BED;
+            case "teleport_player" -> Material.ENDER_PEARL;
+            case "change_max_health" -> Material.DANDELION;
+            case "change_health" -> Material.APPLE;
+            case "change_hunger" -> Material.BEEF;
+            case "give_item" -> Material.CHEST;
+            case "remove_item" -> Material.HOPPER;
+            case "set_compass_target" -> Material.COMPASS;
+            case "set_gamemode" -> Material.GRASS_BLOCK;
             default -> Material.BOOK;
         };
         List<String> lore = new ArrayList<>();
@@ -986,6 +1361,17 @@ public final class ActionsEditor {
         private int soundPage;
         private SoundCategory soundCategory;
         private String soundQuery;
+
+        private ItemStack giveItemStack;
+        private int giveAmount = 1;
+        private Integer giveSlot;
+        private boolean giveReplace;
+
+        private ItemStack removeItemStack;
+        private int removeAmount = 1;
+
+        private SetCompassTargetAction.Direction compassDir = SetCompassTargetAction.Direction.N;
+        private org.bukkit.GameMode gamemode = org.bukkit.GameMode.ADVENTURE;
 
         private Session(Kind kind, String key, UUID owner, HouseSlot slot, Map<String, ActionList> events, ActionList standalone, Consumer<ActionList> onSave, Runnable back) {
             this.kind = kind;

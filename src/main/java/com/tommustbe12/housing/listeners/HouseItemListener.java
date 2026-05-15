@@ -159,8 +159,14 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isFunctionPickerTitle(title)
                 || actionsEditor.isLayoutPickerTitle(title)
                 || actionsEditor.isTeamPickerTitle(title)
+                || actionsEditor.isGroupPickerTitle(title)
                 || actionsEditor.isMenuPickerTitle(title)
                 || actionsEditor.isChangeVariableTitle(title)
+                || actionsEditor.isGiveItemTitle(title)
+                || actionsEditor.isRemoveItemTitle(title)
+                || actionsEditor.isPickSlotTitle(title)
+                || actionsEditor.isCompassTitle(title)
+                || actionsEditor.isGamemodeTitle(title)
                 || actionsEditor.isPlaySoundTitle(title)
                 || functionsGui.isTitle(title)
                 || (regionsGui != null && regionsGui.isTitle(title))
@@ -214,6 +220,30 @@ public final class HouseItemListener implements Listener {
         }
         if (actionsEditor.isTeamPickerTitle(title)) {
             actionsEditor.handleTeamPickerClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isGroupPickerTitle(title)) {
+            actionsEditor.handleGroupPickerClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isGiveItemTitle(title)) {
+            actionsEditor.handleGiveItemClick(player, event.getRawSlot(), clicked);
+            return;
+        }
+        if (actionsEditor.isRemoveItemTitle(title)) {
+            actionsEditor.handleRemoveItemClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isPickSlotTitle(title)) {
+            actionsEditor.handlePickSlotClick(player, event.getRawSlot(), clicked);
+            return;
+        }
+        if (actionsEditor.isCompassTitle(title)) {
+            actionsEditor.handleCompassClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isGamemodeTitle(title)) {
+            actionsEditor.handleGamemodeClick(player, clicked);
             return;
         }
         if (actionsEditor.isMenuPickerTitle(title)) {
@@ -616,6 +646,12 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isFunctionPickerTitle(title)
                 || actionsEditor.isLayoutPickerTitle(title)
                 || actionsEditor.isTeamPickerTitle(title)
+                || actionsEditor.isGroupPickerTitle(title)
+                || actionsEditor.isGiveItemTitle(title)
+                || actionsEditor.isRemoveItemTitle(title)
+                || actionsEditor.isPickSlotTitle(title)
+                || actionsEditor.isCompassTitle(title)
+                || actionsEditor.isGamemodeTitle(title)
                 || functionsGui.isTitle(title)
                 || (regionsGui != null && regionsGui.isTitle(title))
                 || (conditionalGui != null && conditionalGui.isTitle(title))

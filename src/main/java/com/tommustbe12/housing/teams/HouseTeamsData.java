@@ -7,9 +7,12 @@ import java.util.UUID;
 public final class HouseTeamsData {
     private final Map<UUID, HouseTeam> teams = new LinkedHashMap<>();
     private final Map<UUID, UUID> playerTeams = new LinkedHashMap<>();
+    private boolean showTagsEverywhere = true;
 
     public Map<UUID, HouseTeam> teams() { return teams; }
     public Map<UUID, UUID> playerTeams() { return playerTeams; }
+    public boolean showTagsEverywhere() { return showTagsEverywhere; }
+    public void setShowTagsEverywhere(boolean showTagsEverywhere) { this.showTagsEverywhere = showTagsEverywhere; }
 
     public HouseTeam get(UUID id) { return teams.get(id); }
 
@@ -24,4 +27,3 @@ public final class HouseTeamsData {
         else playerTeams.put(playerId, teamId);
     }
 }
-

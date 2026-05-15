@@ -18,6 +18,16 @@ import com.tommustbe12.housing.actions.impl.ApplyInventoryLayoutAction;
 import com.tommustbe12.housing.actions.impl.OpenCustomMenuAction;
 import com.tommustbe12.housing.actions.impl.PlaySoundAction;
 import com.tommustbe12.housing.actions.impl.ChangeTeamAction;
+import com.tommustbe12.housing.actions.impl.ChangeGroupAction;
+import com.tommustbe12.housing.actions.impl.PauseExecutionAction;
+import com.tommustbe12.housing.actions.impl.TeleportPlayerAction;
+import com.tommustbe12.housing.actions.impl.ChangeMaxHealthAction;
+import com.tommustbe12.housing.actions.impl.ChangeHealthAction;
+import com.tommustbe12.housing.actions.impl.ChangeHungerLevelAction;
+import com.tommustbe12.housing.actions.impl.GiveItemAction;
+import com.tommustbe12.housing.actions.impl.RemoveItemAction;
+import com.tommustbe12.housing.actions.impl.SetGamemodeAction;
+import com.tommustbe12.housing.actions.impl.SetCompassTargetAction;
 import com.tommustbe12.housing.actions.ActionList;
 import com.tommustbe12.housing.actions.conditions.*;
 import com.tommustbe12.housing.util.ItemStackSerialization;
@@ -27,6 +37,8 @@ import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService;
 import com.tommustbe12.housing.custommenus.CustomMenusService;
 import com.tommustbe12.housing.teams.TeamsService;
+import com.tommustbe12.housing.groups.HouseGroupsService;
+import com.tommustbe12.housing.util.ItemStackSerialization;
 
 import java.util.Map;
 import java.util.UUID;
@@ -39,8 +51,9 @@ public final class SimpleActionCodec implements ActionCodec {
     private final InventoryLayoutsService inventoryLayouts;
     private final CustomMenusService customMenus;
     private final TeamsService teams;
+    private final HouseGroupsService groups;
 
-    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner, InventoryLayoutsService inventoryLayouts, CustomMenusService customMenus, TeamsService teams) {
+    public SimpleActionCodec(Placeholders placeholders, VariablesStore variables, HouseManager houses, RunFunctionAction.FunctionRunner functionRunner, InventoryLayoutsService inventoryLayouts, CustomMenusService customMenus, TeamsService teams, HouseGroupsService groups) {
         this.placeholders = placeholders;
         this.variables = variables;
         this.houses = houses;
@@ -48,6 +61,7 @@ public final class SimpleActionCodec implements ActionCodec {
         this.inventoryLayouts = inventoryLayouts;
         this.customMenus = customMenus;
         this.teams = teams;
+        this.groups = groups;
     }
 
     @Override
@@ -94,6 +108,43 @@ public final class SimpleActionCodec implements ActionCodec {
                 UUID id = null;
                 try { id = UUID.fromString(string(map, "teamId")); } catch (Exception ignored) {}
                 yield new ChangeTeamAction(teams, id);
+            }
+            case "change_group" -> {
+                UUID id = null;
+                try { id = UUID.fromString(string(map, "groupId")); } catch (Exception ignored) {}
+                yield new ChangeGroupAction(groups, id);
+            }
+            case "pause_execution" -> new PauseExecutionAction((long) doubleNum(map, "ticks", 20));
+            case "teleport_player" -> {
+                TeleportPlayerAction.Mode mode = TeleportPlayerAction.Mode.HOUSE_SPAWN;
+                try { mode = TeleportPlayerAction.Mode.valueOf(string(map, "mode")); } catch (Exception ignored) {}
+                yield new TeleportPlayerAction(houses, mode,
+                        doubleNum(map, "x", 0), doubleNum(map, "y", 0), doubleNum(map, "z", 0),
+                        (float) doubleNum(map, "yaw", 0), (float) doubleNum(map, "pitch", 0));
+            }
+            case "change_max_health" -> new ChangeMaxHealthAction(doubleNum(map, "maxHealth", 20));
+            case "change_health" -> new ChangeHealthAction(doubleNum(map, "health", 20));
+            case "change_hunger" -> new ChangeHungerLevelAction(integer(map, "food", 20));
+            case "give_item" -> {
+                String b64 = string(map, "item");
+                var item = b64 == null || b64.isBlank() ? null : ItemStackSerialization.fromBase64(b64);
+                int slot = integer(map, "slot", -1);
+                yield new GiveItemAction(item, integer(map, "amount", 1), slot < 0 ? null : slot, bool(map, "replaceSlot", false));
+            }
+            case "remove_item" -> {
+                String b64 = string(map, "item");
+                var item = b64 == null || b64.isBlank() ? null : ItemStackSerialization.fromBase64(b64);
+                yield new RemoveItemAction(item, integer(map, "amount", 1));
+            }
+            case "set_gamemode" -> {
+                org.bukkit.GameMode mode;
+                try { mode = org.bukkit.GameMode.valueOf(string(map, "mode")); } catch (Exception e) { mode = org.bukkit.GameMode.ADVENTURE; }
+                yield new SetGamemodeAction(groups, mode);
+            }
+            case "set_compass_target" -> {
+                SetCompassTargetAction.Direction d;
+                try { d = SetCompassTargetAction.Direction.valueOf(string(map, "dir")); } catch (Exception e) { d = SetCompassTargetAction.Direction.N; }
+                yield new SetCompassTargetAction(d);
             }
             case "conditional" -> decodeConditional(map);
             default -> null;

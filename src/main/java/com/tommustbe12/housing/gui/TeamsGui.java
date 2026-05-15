@@ -109,6 +109,13 @@ public final class TeamsGui {
 
         if (TITLE_SETTINGS.equals(title)) {
             if (clicked.getType() == Material.ARROW) { open(player, backToSystems); return; }
+            if (clicked.getType() == Material.NAME_TAG) {
+                var data = teams.teams(info.owner(), info.slot());
+                data.setShowTagsEverywhere(!data.showTagsEverywhere());
+                teams.save(info.owner(), info.slot());
+                openSettings(player, backToSystems);
+                return;
+            }
             return;
         }
 
@@ -197,9 +204,13 @@ public final class TeamsGui {
     }
 
     private void openSettings(Player player, Runnable backToSystems) {
+        var info = houses.getHouseInfoByWorld(player.getWorld());
+        if (info == null) return;
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_SETTINGS);
         fill(inv);
-        inv.setItem(13, named(Material.COMPARATOR, "§eOverall Team Settings", List.of("§7Coming soon.")));
+        boolean show = teams.teams(info.owner(), info.slot()).showTagsEverywhere();
+        inv.setItem(13, named(Material.NAME_TAG, "§bShow Team Tags: " + (show ? "§aON" : "§7OFF"),
+                List.of("§7Affects: chat, tab list, nametags.", "§7Click to toggle.")));
         inv.setItem(22, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
@@ -304,4 +315,3 @@ public final class TeamsGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-
