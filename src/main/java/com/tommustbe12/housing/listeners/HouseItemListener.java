@@ -172,6 +172,7 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isLaunchTitle(title)
                 || actionsEditor.isEnchantTitle(title)
                 || actionsEditor.isRandomTitle(title)
+                || actionsEditor.isPotionTitle(title)
                 || actionsEditor.isPlaySoundTitle(title)
                 || functionsGui.isTitle(title)
                 || (regionsGui != null && regionsGui.isTitle(title))
@@ -269,6 +270,10 @@ public final class HouseItemListener implements Listener {
         }
         if (actionsEditor.isRandomTitle(title)) {
             actionsEditor.handleRandomClick(player, clicked);
+            return;
+        }
+        if (actionsEditor.isPotionTitle(title)) {
+            actionsEditor.handlePotionClick(player, clicked);
             return;
         }
         if (actionsEditor.isMenuPickerTitle(title)) {
@@ -682,6 +687,7 @@ public final class HouseItemListener implements Listener {
                 || actionsEditor.isLaunchTitle(title)
                 || actionsEditor.isEnchantTitle(title)
                 || actionsEditor.isRandomTitle(title)
+                || actionsEditor.isPotionTitle(title)
                 || functionsGui.isTitle(title)
                 || (regionsGui != null && regionsGui.isTitle(title))
                 || (conditionalGui != null && conditionalGui.isTitle(title))

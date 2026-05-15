@@ -53,6 +53,7 @@ public final class ActionsEditor {
     private static final String TITLE_PLAY_SOUND = "Play Sound";
     private static final String TITLE_SOUNDS = "Sounds";
     private static final String TITLE_PICK_SOUND = "Choose Sound";
+    private static final String TITLE_POTION = "Potion Effect";
 
     private final Plugin plugin;
     private final Debug debug;
@@ -124,6 +125,7 @@ public final class ActionsEditor {
     public boolean isPlaySoundTitle(String title) {
         return TITLE_PLAY_SOUND.equals(title) || TITLE_SOUNDS.equals(title) || TITLE_PICK_SOUND.equals(title);
     }
+    public boolean isPotionTitle(String title) { return TITLE_POTION.equals(title); }
 
     public boolean isGiveItemTitle(String title) { return TITLE_GIVE_ITEM.equals(title); }
     public boolean isRemoveItemTitle(String title) { return TITLE_REMOVE_ITEM.equals(title); }
@@ -265,13 +267,12 @@ public final class ActionsEditor {
                 save(session);
                 openList(player, session);
             }
-            case POTION -> prompt(player, "Enter effect,durationTicks,amplifier (ex: SPEED,200,1):", msg -> {
-                String[] parts = msg.split(",", 3);
-                if (parts.length < 3) return;
-                list.actions().add(new ApplyPotionEffectAction(parts[0].trim(), Integer.parseInt(parts[1].trim()), Integer.parseInt(parts[2].trim())));
-                save(session);
-                openList(player, session);
-            });
+            case POTION -> {
+                session.potionEffect = "SPEED";
+                session.potionDuration = 200;
+                session.potionAmplifier = 0;
+                openPotionGui(player, session);
+            }
             case ACTIVATOR_RAIL -> openFunctionPicker(player);
             case IRON_AXE -> openLayoutPicker(player);
             case OAK_SIGN -> openTeamPicker(player);
@@ -420,6 +421,17 @@ public final class ActionsEditor {
         inv.setItem(12, named(Material.ENDER_EYE, "§bADVENTURE", List.of("§7Click to select")));
         inv.setItem(14, named(Material.FEATHER, "§eSPECTATOR", List.of("§7Click to select")));
         inv.setItem(16, named(Material.DIAMOND_PICKAXE, "§dCREATIVE", List.of("§7Click to select")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
+        player.openInventory(inv);
+    }
+
+    private void openPotionGui(Player player, Session session) {
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_POTION);
+        fill(inv);
+        inv.setItem(11, named(Material.POTION, "§dEffect: §f" + session.potionEffect, List.of("§7Click to edit in chat.")));
+        inv.setItem(13, named(Material.CLOCK, "§bDuration (ticks): §f" + session.potionDuration, List.of("§7Click to edit in chat.")));
+        inv.setItem(15, named(Material.EXPERIENCE_BOTTLE, "§aAmplifier: §f" + session.potionAmplifier, List.of("§7Click to edit in chat.")));
+        inv.setItem(22, named(Material.LIME_CONCRETE, "§aDone", List.of("§7Add action.")));
         inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Cancel.")));
         player.openInventory(inv);
     }
@@ -820,6 +832,45 @@ public final class ActionsEditor {
         }
         if (clicked.getType() == Material.LIME_CONCRETE) {
             session.list().actions().add(new RandomAction(session.randomTypes));
+            save(session);
+            openList(player, session);
+        }
+    }
+
+    public void handlePotionClick(Player player, ItemStack clicked) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session == null) return;
+        if (!TITLE_POTION.equals(player.getOpenInventory().getTitle())) return;
+        if (clicked == null || clicked.getType().isAir()) return;
+        if (clicked.getType() == Material.ARROW) { openAddPicker(player); return; }
+        if (clicked.getType() == Material.POTION) {
+            prompt(player, "Effect (ex: SPEED):", msg -> {
+                session.potionEffect = msg.trim().toUpperCase(java.util.Locale.ROOT);
+                openPotionGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.CLOCK) {
+            prompt(player, "Duration ticks:", msg -> {
+                session.potionDuration = Math.max(1, Integer.parseInt(msg.trim()));
+                openPotionGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.EXPERIENCE_BOTTLE) {
+            prompt(player, "Amplifier:", msg -> {
+                session.potionAmplifier = Math.max(0, Integer.parseInt(msg.trim()));
+                openPotionGui(player, session);
+            });
+            return;
+        }
+        if (clicked.getType() == Material.LIME_CONCRETE) {
+            if (session.replaceIndex != null && session.replaceIndex >= 0 && session.replaceIndex < session.list().actions().size()) {
+                session.list().actions().set(session.replaceIndex, new ApplyPotionEffectAction(session.potionEffect, session.potionDuration, session.potionAmplifier));
+                session.replaceIndex = null;
+            } else {
+                session.list().actions().add(new ApplyPotionEffectAction(session.potionEffect, session.potionDuration, session.potionAmplifier));
+            }
             save(session);
             openList(player, session);
         }
@@ -1388,13 +1439,12 @@ public final class ActionsEditor {
             return;
         }
         if (action instanceof ApplyPotionEffectAction) {
-            prompt(player, "Edit effect,duration,amp:", msg -> {
-                String[] parts = msg.split(",", 3);
-                if (parts.length < 3) return;
-                list.actions().set(index, new ApplyPotionEffectAction(parts[0].trim(), Integer.parseInt(parts[1].trim()), Integer.parseInt(parts[2].trim())));
-                save(session);
-                openList(player, session);
-            });
+            ApplyPotionEffectAction p = (ApplyPotionEffectAction) action;
+            session.replaceIndex = index;
+            session.potionEffect = p.effect();
+            session.potionDuration = p.durationTicks();
+            session.potionAmplifier = p.amplifier();
+            openPotionGui(player, session);
             return;
         }
         if (action instanceof RunFunctionAction fn) {
@@ -1624,6 +1674,10 @@ public final class ActionsEditor {
         private int enchantLevel = 1;
 
         private java.util.List<String> randomTypes = new java.util.ArrayList<>();
+
+        private String potionEffect = "SPEED";
+        private int potionDuration = 200;
+        private int potionAmplifier = 0;
 
         private Session(Kind kind, String key, UUID owner, HouseSlot slot, Map<String, ActionList> events, ActionList standalone, Consumer<ActionList> onSave, Runnable back) {
             this.kind = kind;
