@@ -4,6 +4,7 @@ import com.tommustbe12.housing.actions.Action;
 import com.tommustbe12.housing.actions.ActionList;
 import com.tommustbe12.housing.actions.storage.ActionCodec;
 import com.tommustbe12.housing.actions.storage.ActionSerializer;
+import com.tommustbe12.housing.gui.CustomMenusGui;
 import com.tommustbe12.housing.houses.HouseSlot;
 import com.tommustbe12.housing.util.ItemStackSerialization;
 import org.bukkit.configuration.ConfigurationSection;
@@ -40,10 +41,10 @@ public final class CustomMenusStorage {
                 if (m == null) continue;
                 String name = m.getString("name", "Menu");
                 String title = m.getString("title", "");
-                int rows = m.getInt("rows", 3);
+                int rows = m.getInt("rows", CustomMenu.FIXED_ROWS);
                 CustomMenu menu = new CustomMenu(id, name, rows);
                 if (title != null && !title.isBlank()) menu.setTitle(title);
-                ItemStack[] contents = new ItemStack[rows * 9];
+                ItemStack[] contents = new ItemStack[CustomMenu.FIXED_SIZE];
                 ConfigurationSection c = m.getConfigurationSection("contents");
                 if (c != null) {
                     for (String k : c.getKeys(false)) {
@@ -54,12 +55,15 @@ public final class CustomMenusStorage {
                     }
                 }
                 menu.setContents(contents);
+                // Ensure divider panes exist in the fixed layout.
+                for (int i = 0; i < contents.length; i++) if (CustomMenusGui.isDividerSlot(i)) contents[i] = CustomMenusGui.dividerPane();
 
                 ConfigurationSection a = m.getConfigurationSection("actions");
                 if (a != null) {
                     for (String k : a.getKeys(false)) {
                         int idx;
                         try { idx = Integer.parseInt(k); } catch (Exception e) { continue; }
+                        if (idx < 0 || idx >= CustomMenu.FIXED_SIZE) continue;
                         CustomMenu.SlotActions slotActions = new CustomMenu.SlotActions();
 
                         // v2 format: actions.<slot>.left / actions.<slot>.right
@@ -74,6 +78,9 @@ public final class CustomMenusStorage {
                         menu.slotActions().put(idx, slotActions);
                     }
                 }
+
+                // Enforce fixed layout: purge any invalid action slots (and divider panes).
+                menu.slotActions().entrySet().removeIf(e -> e.getKey() < 0 || e.getKey() >= CustomMenu.FIXED_SIZE || CustomMenusGui.isDividerSlot(e.getKey()));
                 out.add(menu);
             } catch (Exception ignored) {}
         }

@@ -24,23 +24,30 @@ public final class CustomMenusGuiListener implements Listener {
         String title = event.getView().getTitle();
         if (!gui.isTitle(title)) return;
 
-        // In the editor (top inventory), allow placing items, but protect the control row from taking items.
+        int topSize = event.getView().getTopInventory().getSize();
         int raw = event.getRawSlot();
+
+        // Always allow interacting with the player's inventory normally (but block shift-click auto-moving into the editor).
+        if (raw >= topSize) {
+            if (title != null && title.startsWith("Edit Menu: ") && event.getClick().isShiftClick()) event.setCancelled(true);
+            return;
+        }
+
+        // In the editor (top inventory), allow placing items, but protect the control row from taking items.
         if (title != null && title.startsWith("Edit Menu: ")) {
-            int topSize = event.getView().getTopInventory().getSize();
             if (raw >= 45 && raw < topSize) event.setCancelled(true);
             ItemStack current = event.getCurrentItem();
-            if (raw >= 0 && raw < 45 && current != null && current.getType() == org.bukkit.Material.BLACK_STAINED_GLASS_PANE) {
+            if (raw >= 0 && raw < topSize && current != null && current.getType() == org.bukkit.Material.BLACK_STAINED_GLASS_PANE) {
                 event.setCancelled(true);
             }
+            if (raw >= 27 && raw < 45) event.setCancelled(true);
         } else {
             event.setCancelled(true);
         }
 
         // Only treat editor slot right-click as "edit actions" (left click should behave like normal inventory editing).
         if (title != null && title.startsWith("Edit Menu: ")) {
-            int topSize = event.getView().getTopInventory().getSize();
-            if (raw >= 0 && raw < 45 && raw < topSize && !event.getClick().isRightClick()) {
+            if (raw >= 0 && raw < 45 && !event.getClick().isRightClick()) {
                 return;
             }
         }
@@ -56,7 +63,13 @@ public final class CustomMenusGuiListener implements Listener {
         if (!gui.isTitle(title)) return;
         if (title != null && title.startsWith("Edit Menu: ")) {
             for (int slot : event.getRawSlots()) {
-                if (slot >= 45 && slot < event.getView().getTopInventory().getSize()) {
+                int topSize = event.getView().getTopInventory().getSize();
+                if (slot >= topSize) continue;
+                if (slot >= 27 && slot < 45) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (slot >= 45 && slot < topSize) {
                     event.setCancelled(true);
                     return;
                 }

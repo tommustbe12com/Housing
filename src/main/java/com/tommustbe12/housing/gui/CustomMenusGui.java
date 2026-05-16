@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CustomMenusGui {
     private static final String TITLE_LIST = "Custom Menus";
     private static final String TITLE_EDIT_PREFIX = "Edit Menu: ";
+    private static final int MENU_SIZE = CustomMenu.FIXED_SIZE;
 
     private final Plugin plugin;
     private final ChatPrompts prompts;
@@ -57,7 +58,7 @@ public final class CustomMenusGui {
         if (info == null) return;
         boolean isOwner = info.owner().equals(player.getUniqueId());
         if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.EDIT_CUSTOM_MENUS))) {
-            player.sendMessage("§cYou don't have permission to edit custom menus in this house.");
+            player.sendMessage("Â§cYou don't have permission to edit custom menus in this house.");
             return;
         }
 
@@ -65,11 +66,11 @@ public final class CustomMenusGui {
         fill(inv);
         int i = 0;
         for (CustomMenu m : menus.get(info.owner(), info.slot())) {
-            inv.setItem(i++, named(Material.ITEM_FRAME, "§f" + m.name(), List.of("§7Click to edit", "§7Right-click to delete")));
+            inv.setItem(i++, named(Material.ITEM_FRAME, "Â§f" + m.name(), List.of("Â§7Click to edit", "Â§7Right-click to delete")));
             if (i >= 45) break;
         }
-        inv.setItem(49, named(Material.ANVIL, "§aCreate Menu", List.of("§7Click to create a new menu.")));
-        inv.setItem(53, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        inv.setItem(49, named(Material.ANVIL, "Â§aCreate Menu", List.of("Â§7Click to create a new menu.")));
+        inv.setItem(53, named(Material.ARROW, "Â§7Back", List.of("Â§7Return.")));
         player.openInventory(inv);
     }
 
@@ -94,7 +95,7 @@ public final class CustomMenusGui {
                 prompts.prompt(player, "Enter menu name:", msg -> {
                     if (msg.equalsIgnoreCase("cancel")) return;
                     Bukkit.getScheduler().runTask(plugin, () -> {
-                        CustomMenu m = new CustomMenu(UUID.randomUUID(), msg.trim(), 3);
+                        CustomMenu m = new CustomMenu(UUID.randomUUID(), msg.trim(), CustomMenu.FIXED_ROWS);
                         menus.get(info.owner(), info.slot()).add(m);
                         menus.save(info.owner(), info.slot());
                         openEditor(player, info.owner(), info.slot(), m);
@@ -109,7 +110,7 @@ public final class CustomMenusGui {
             if (clickType.isRightClick()) {
                 list.remove(idx);
                 menus.save(info.owner(), info.slot());
-                player.sendMessage("§aMenu deleted.");
+                player.sendMessage("Â§aMenu deleted.");
                 open(player);
                 return;
             }
@@ -139,35 +140,30 @@ public final class CustomMenusGui {
                 });
                 return;
             }
-            if (clicked.getType() == Material.CHEST) {
-                int nextRows = menu.rows() == 3 ? 6 : 3;
-                menu.setRows(nextRows);
-                menus.save(info.owner(), info.slot());
-                openEditor(player, info.owner(), info.slot(), menu);
-                return;
-            }
             if (clicked.getType() == Material.LIME_CONCRETE) {
                 saveFromEditor(player, info.owner(), info.slot(), menu);
-                player.sendMessage("§aMenu saved.");
+                player.sendMessage("Â§aMenu saved.");
                 open(player);
                 return;
             }
             if (clicked.getType() == Material.RED_CONCRETE) {
-                player.sendMessage("§cCanceled.");
+                player.sendMessage("Â§cCanceled.");
                 open(player);
                 return;
             }
 
-            if (rawSlot >= 0 && rawSlot < menu.rows() * 9 && clickType.isRightClick()) {
+            if (rawSlot >= 0 && rawSlot < MENU_SIZE && clickType.isRightClick() && !isDividerSlot(rawSlot)) {
                 int slotIndex = rawSlot;
                 CustomMenu.SlotActions slotActions = menu.slotActions().computeIfAbsent(slotIndex, k -> new CustomMenu.SlotActions());
-                var list = slotActions.right();
+                boolean editRight = clickType.isShiftClick();
+                var list = editRight ? slotActions.right() : slotActions.left();
                 actionsEditor.openStandaloneHouse(player, info.owner(), info.slot(),
-                        "Menu: " + menu.name() + " (Slot " + (slotIndex + 1) + ")",
+                        "Menu: " + menu.name() + " (Slot " + (slotIndex + 1) + (editRight ? ", Right-Click" : ", Left-Click") + ")",
                         list,
                         updated -> {
-                            slotActions.right().actions().clear();
-                            slotActions.right().actions().addAll(updated.actions());
+                            var target = editRight ? slotActions.right() : slotActions.left();
+                            target.actions().clear();
+                            target.actions().addAll(updated.actions());
                             menus.save(info.owner(), info.slot());
                         },
                         () -> openEditor(player, info.owner(), info.slot(), menu));
@@ -181,20 +177,30 @@ public final class CustomMenusGui {
 
     private void openEditor(Player player, UUID owner, HouseSlot slot, CustomMenu menu) {
         editingMenuId.put(player.getUniqueId(), menu.id());
-        int size = menu.rows() * 9;
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_EDIT_PREFIX + menu.name());
 
-        ItemStack pane = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
-        for (int i = 0; i < 54; i++) inv.setItem(i, i >= 45 ? pane : null);
+        ItemStack pane = dividerPane();
+        for (int i = 0; i < 54; i++) {
+            if (i >= 27 && i < 45) inv.setItem(i, pane);
+            else inv.setItem(i, null);
+        }
+        for (int i = 0; i < MENU_SIZE; i++) if (isDividerSlot(i)) inv.setItem(i, pane);
 
         ItemStack[] contents = menu.contents();
-        for (int i = 0; i < Math.min(size, contents.length); i++) inv.setItem(i, contents[i]);
+        for (int i = 0; i < Math.min(MENU_SIZE, contents.length); i++) {
+            if (isDividerSlot(i)) continue;
+            inv.setItem(i, contents[i]);
+        }
 
-        inv.setItem(45, named(Material.NAME_TAG, "§eRename", List.of("§7Rename this menu.")));
-        inv.setItem(46, named(Material.CHEST, "§bRows", List.of("§7Current: §f" + menu.rows(), "§7Click to toggle 3/6")));
-        inv.setItem(49, named(Material.RED_CONCRETE, "§cCancel", List.of("§7Discard changes.")));
-        inv.setItem(53, named(Material.LIME_CONCRETE, "§aSave", List.of("§7Save menu items.")));
-        inv.setItem(52, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        inv.setItem(45, named(Material.NAME_TAG, "Â§eRename", List.of("Â§7Rename this menu.")));
+        inv.setItem(46, named(Material.PAPER, "Â§bActions", List.of("Â§7Right-click a slot to edit actions.", "Â§7Shift+Right-click edits right-click actions.")));
+        inv.setItem(49, named(Material.RED_CONCRETE, "Â§cCancel", List.of("Â§7Discard changes.")));
+        inv.setItem(52, named(Material.ARROW, "Â§7Back", List.of("Â§7Return.")));
+        inv.setItem(53, named(Material.LIME_CONCRETE, "Â§aSave", List.of("Â§7Save menu items.")));
+        inv.setItem(47, pane);
+        inv.setItem(48, pane);
+        inv.setItem(50, pane);
+        inv.setItem(51, pane);
 
         HousingItems.ensureMenuStar(plugin, player);
         player.openInventory(inv);
@@ -202,14 +208,19 @@ public final class CustomMenusGui {
 
     private void saveFromEditor(Player player, UUID owner, HouseSlot slot, CustomMenu menu) {
         Inventory inv = player.getOpenInventory().getTopInventory();
-        int size = menu.rows() * 9;
-        ItemStack[] contents = new ItemStack[size];
-        for (int i = 0; i < size; i++) {
+        ItemStack[] contents = new ItemStack[MENU_SIZE];
+        ItemStack pane = dividerPane();
+        for (int i = 0; i < MENU_SIZE; i++) {
+            if (isDividerSlot(i)) {
+                contents[i] = pane;
+                continue;
+            }
             ItemStack it = inv.getItem(i);
             if (HousingItems.isMenuStar(plugin, it)) it = null;
             contents[i] = it;
         }
         menu.setContents(contents);
+        menu.slotActions().entrySet().removeIf(e -> e.getKey() < 0 || e.getKey() >= MENU_SIZE || isDividerSlot(e.getKey()));
         menus.save(owner, slot);
     }
 
@@ -229,8 +240,18 @@ public final class CustomMenusGui {
     }
 
     private static void fill(Inventory inv) {
-        ItemStack filler = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
+        ItemStack filler = dividerPane();
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
+    }
+
+    public static boolean isDividerSlot(int slot) {
+        if (slot < 0 || slot >= MENU_SIZE) return false;
+        int col = slot % 9;
+        return (col % 2) == 1;
+    }
+
+    public static ItemStack dividerPane() {
+        return named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
     }
 }
 

@@ -10,6 +10,9 @@ import java.util.UUID;
 public final class CustomMenu {
     public enum ClickKind { LEFT, RIGHT }
 
+    public static final int FIXED_ROWS = 3;
+    public static final int FIXED_SIZE = FIXED_ROWS * 9;
+
     public static final class SlotActions {
         private final ActionList left = new ActionList();
         private final ActionList right = new ActionList();
@@ -20,15 +23,15 @@ public final class CustomMenu {
     private final UUID id;
     private String name;
     private String title;
-    private int rows; // 3 or 6
-    private ItemStack[] contents; // size rows*9
+    private int rows; // fixed to 3
+    private ItemStack[] contents; // size FIXED_SIZE
     private final Map<Integer, SlotActions> slotActions = new HashMap<>();
 
     public CustomMenu(UUID id, String name, int rows) {
         this.id = id;
         this.name = name;
-        this.rows = rows;
-        this.contents = new ItemStack[rows * 9];
+        this.rows = FIXED_ROWS;
+        this.contents = new ItemStack[FIXED_SIZE];
     }
 
     public UUID id() { return id; }
@@ -38,9 +41,9 @@ public final class CustomMenu {
     public void setTitle(String title) { this.title = title; }
     public int rows() { return rows; }
     public void setRows(int rows) {
-        this.rows = rows;
-        this.contents = new ItemStack[rows * 9];
-        this.slotActions.clear();
+        // Legacy method: custom menus are fixed to 3 rows.
+        this.rows = FIXED_ROWS;
+        if (this.contents == null || this.contents.length != FIXED_SIZE) this.contents = new ItemStack[FIXED_SIZE];
     }
 
     public ItemStack[] contents() { return contents; }
