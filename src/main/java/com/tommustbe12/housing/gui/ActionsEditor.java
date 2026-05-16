@@ -343,7 +343,9 @@ public final class ActionsEditor {
                 list.actions().add(cond);
                 int idx = list.actions().size() - 1;
                 conditionalGui.open(player, session.owner, session.slot, cond, updated -> {
-                    list.actions().set(idx, updated);
+                    // The underlying list may have been changed by other edits; be defensive.
+                    if (idx >= 0 && idx < list.actions().size()) list.actions().set(idx, updated);
+                    else list.actions().add(updated);
                     save(session);
                 }, () -> openList(player, session));
             }

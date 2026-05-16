@@ -72,6 +72,9 @@ public final class Housing extends JavaPlugin {
     private BannedPlayersGui bannedPlayersGui;
     private TeamsService teamsService;
     private TeamsGui teamsGui;
+    private com.tommustbe12.housing.holograms.HologramsService hologramsService;
+    private com.tommustbe12.housing.holograms.HologramsRuntime hologramsRuntime;
+    private com.tommustbe12.housing.gui.HologramsGui hologramsGui;
 
     @Override
     public void onEnable() {
@@ -101,6 +104,9 @@ public final class Housing extends JavaPlugin {
         this.functionsGui = new FunctionsGui(this, debug, chatPrompts, actionsEditor, houseManager, groupsService);
         this.customMenusService = new com.tommustbe12.housing.custommenus.CustomMenusService(this, houseManager);
         this.customMenusGui = new CustomMenusGui(this, chatPrompts, houseManager, customMenusService, actionsEditor, groupsService);
+        this.hologramsService = new com.tommustbe12.housing.holograms.HologramsService(this, houseManager);
+        this.hologramsRuntime = new com.tommustbe12.housing.holograms.HologramsRuntime(this, debug, houseManager, hologramsService);
+        this.hologramsGui = new com.tommustbe12.housing.gui.HologramsGui(this, chatPrompts, houseManager, hologramsService, hologramsRuntime);
         this.npcManager = new NpcManager(this, debug, houseManager);
         this.npcManager.start();
         // NPCs should only despawn when a house is deactivated (after inactivity timer) or deleted.
@@ -115,7 +121,7 @@ public final class Housing extends JavaPlugin {
 
         WeatherGui weatherGui = new WeatherGui(this, houseManager, groupsService);
         BiomesSkiesGui biomesSkiesGui = new BiomesSkiesGui(this, houseManager, groupsService);
-        ItemsGui itemsGui = new ItemsGui();
+        ItemsGui itemsGui = new ItemsGui(this);
         BlocksGui blocksGui = new BlocksGui(houseManager, groupsService);
         HousePlayersGui housePlayersGui = new HousePlayersGui(houseManager, groupsService, playerSettingsGui);
 
@@ -144,6 +150,9 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ChatPromptListener(chatPrompts), this);
         getServer().getPluginManager().registerEvents(new ItemEditGuiListener(itemEditGui), this);
         getServer().getPluginManager().registerEvents(new ItemActionListener(this, debug, houseManager, itemEditGui), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.NpcPlacerItemListener(this, houseManager, npcManager), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HologramListener(this, houseManager, hologramsService, hologramsRuntime, hologramsGui), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HologramsGuiListener(hologramsGui), this);
         getServer().getPluginManager().registerEvents(new CustomMenusGuiListener(customMenusGui), this);
         getServer().getPluginManager().registerEvents(new CustomMenuRuntimeListener(this, debug, customMenusService), this);
         getServer().getPluginManager().registerEvents(new HouseEventActionsListener(houseManager, actionsService), this);

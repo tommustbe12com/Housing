@@ -104,4 +104,36 @@ public final class HousingItems {
         Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "hub_cookies_left"), PersistentDataType.BYTE);
         return b != null && b == (byte) 1;
     }
+
+    public static ItemStack createNpcPlacerItem(Plugin plugin) {
+        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName("§bNPC Placer");
+        meta.setLore(List.of("§7Right-click a block to place an NPC."));
+        meta.getPersistentDataContainer().set(key(plugin, "npc_placer"), PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public static boolean isNpcPlacerItem(Plugin plugin, ItemStack item) {
+        if (item == null || item.getType() != Material.PLAYER_HEAD || !item.hasItemMeta()) return false;
+        Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "npc_placer"), PersistentDataType.BYTE);
+        return b != null && b == (byte) 1;
+    }
+
+    public static ItemStack createHologramPlacerItem(Plugin plugin) {
+        ItemStack item = new ItemStack(Material.NAME_TAG);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName("§dHologram Placer");
+        meta.setLore(List.of("§7Right-click a block to place a hologram.", "§7Shift-right-click hologram to edit."));
+        meta.getPersistentDataContainer().set(key(plugin, "holo_placer"), PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public static boolean isHologramPlacerItem(Plugin plugin, ItemStack item) {
+        if (item == null || item.getType() != Material.NAME_TAG || !item.hasItemMeta()) return false;
+        Byte b = item.getItemMeta().getPersistentDataContainer().get(key(plugin, "holo_placer"), PersistentDataType.BYTE);
+        return b != null && b == (byte) 1;
+    }
 }
