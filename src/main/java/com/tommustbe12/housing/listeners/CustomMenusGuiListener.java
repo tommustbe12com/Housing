@@ -41,6 +41,9 @@ public final class CustomMenusGuiListener implements Listener {
                 event.setCancelled(true);
             }
             if (raw >= 27 && raw < 45) event.setCancelled(true);
+
+            // For action editing: right-clicking an item should never move it, it should open the action editor.
+            if (raw >= 0 && raw < 27 && event.getClick().isRightClick()) event.setCancelled(true);
         } else {
             event.setCancelled(true);
         }

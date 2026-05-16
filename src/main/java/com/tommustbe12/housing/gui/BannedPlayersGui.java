@@ -45,7 +45,7 @@ public final class BannedPlayersGui {
         if (info == null) return;
         boolean isOwner = info.owner().equals(viewer.getUniqueId());
         if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), viewer.getUniqueId(), HousePermission.BAN))) {
-            viewer.sendMessage("Â§cYou don't have permission to manage bans in this house.");
+            viewer.sendMessage("§cYou don't have permission to manage bans in this house.");
             return;
         }
 
@@ -61,11 +61,11 @@ public final class BannedPlayersGui {
         for (UUID pid : order) {
             if (i >= 45) break;
             OfflinePlayer off = Bukkit.getOfflinePlayer(pid);
-            inv.setItem(i++, skull(off, "Â§c" + (off.getName() == null ? pid.toString() : off.getName()),
-                    List.of("Â§7Click to unban")));
+            inv.setItem(i++, skull(off, "§c" + (off.getName() == null ? pid.toString() : off.getName()),
+                    List.of("§7Click to unban")));
         }
 
-        inv.setItem(53, named(Material.ARROW, "Â§7Back", List.of("Â§7Return.")));
+        inv.setItem(53, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         viewer.openInventory(inv);
     }
 
@@ -89,7 +89,7 @@ public final class BannedPlayersGui {
                     return;
                 }
                 groups.setBanned(info.owner(), info.slot(), target, false);
-                viewer.sendMessage("Â§aUnbanned.");
+                viewer.sendMessage("§aUnbanned.");
                 open(viewer, back);
                 return;
             }
@@ -114,9 +114,9 @@ public final class BannedPlayersGui {
 
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_CONFIRM_PREFIX + name);
         fill(inv);
-        inv.setItem(11, named(Material.LIME_CONCRETE, "Â§aConfirm Unban", List.of("Â§7Are you sure you want to unban", "Â§f" + name + "Â§7?")));
-        inv.setItem(15, named(Material.RED_CONCRETE, "Â§cCancel", List.of("Â§7Return to banned players list.")));
-        inv.setItem(26, named(Material.ARROW, "Â§7Back", List.of("Â§7Return.")));
+        inv.setItem(11, named(Material.LIME_CONCRETE, "§aConfirm Unban", List.of("§7Are you sure you want to unban", "§f" + name + "§7?")));
+        inv.setItem(15, named(Material.RED_CONCRETE, "§cCancel", List.of("§7Return to banned players list.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         viewer.openInventory(inv);
     }
 
@@ -147,4 +147,3 @@ public final class BannedPlayersGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-
