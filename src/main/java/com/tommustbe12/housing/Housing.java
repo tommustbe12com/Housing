@@ -93,6 +93,7 @@ public final class Housing extends JavaPlugin {
         this.commandsGui = new CommandsGui(this, debug, chatPrompts, actionsEditor, houseManager, groupsService);
         this.groupsGui = new GroupsGui(this, chatPrompts, houseManager, groupsService);
         this.teamsGui = new TeamsGui(this, chatPrompts, houseManager, teamsService);
+        this.bannedPlayersGui = new BannedPlayersGui(this, houseManager, groupsService);
         this.houseSettingsGui = new HouseSettingsGui(this, chatPrompts, houseManager, groupsGui, groupsService, bannedPlayersGui);
         this.playerSettingsGui = new PlayerSettingsGui(this, chatPrompts, houseManager, groupsService, ownerTagService);
         this.inventoryLayoutsGui = new InventoryLayoutsGui(this, chatPrompts, houseManager, new com.tommustbe12.housing.inventorylayouts.InventoryLayoutsService(this), groupsService);
@@ -105,7 +106,7 @@ public final class Housing extends JavaPlugin {
         // NPCs should only despawn when a house is deactivated (after inactivity timer) or deleted.
         this.houseManager.setOnHouseDeactivated(world -> npcManager.despawnAll(world));
         this.npcsGui = new NpcsGui(this, chatPrompts, houseManager, npcManager, actionsEditor, groupsService);
-        this.bannedPlayersGui = new BannedPlayersGui(this, houseManager, groupsService);
+        // bannedPlayersGui initialized above (needed by HouseSettingsGui)
 
         RegionSelectionService regionSelections = new RegionSelectionService();
         RegionSelectionVisualizer regionSelectionVisualizer = new RegionSelectionVisualizer(this, regionSelections);

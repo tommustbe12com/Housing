@@ -25,6 +25,7 @@ public final class ConditionalGui {
     private static final String TITLE_CONDITIONS = "Edit Conditions";
     private static final String TITLE_ADD_COND = "Add Condition";
     private static final String TITLE_SET_ITEM = "Set Required Item";
+    private static final String TITLE_PICK_OP = "Choose Comparison";
 
     private final Plugin plugin;
     private final ChatPrompts prompts;
@@ -44,7 +45,11 @@ public final class ConditionalGui {
     }
 
     public boolean isTitle(String title) {
-        return TITLE_SETTINGS.equals(title) || TITLE_CONDITIONS.equals(title) || TITLE_ADD_COND.equals(title) || TITLE_SET_ITEM.equals(title);
+        return TITLE_SETTINGS.equals(title)
+                || TITLE_CONDITIONS.equals(title)
+                || TITLE_ADD_COND.equals(title)
+                || TITLE_SET_ITEM.equals(title)
+                || TITLE_PICK_OP.equals(title);
     }
 
     public void open(Player player, UUID owner, com.tommustbe12.housing.houses.HouseSlot slot, ConditionalAction conditional, Consumer<ConditionalAction> onSave, Runnable back) {
@@ -131,6 +136,22 @@ public final class ConditionalGui {
                 session.pendingItemConsumer = null;
                 openConditions(player);
             }
+            return;
+        }
+
+        if (TITLE_PICK_OP.equals(title)) {
+            if (clicked.getType() == Material.ARROW) {
+                openConditions(player);
+                return;
+            }
+            CompareOp op = opFromIcon(clicked.getType());
+            if (op == null) return;
+            if (session.pendingOpConsumer != null) {
+                var consumer = session.pendingOpConsumer;
+                session.pendingOpConsumer = null;
+                consumer.accept(op);
+            }
+            return;
         }
     }
 
@@ -268,59 +289,43 @@ public final class ConditionalGui {
     private void editCondition(Player player, Session s, int idx) {
         Condition c = s.conditions.get(idx);
         if (c instanceof VariableRequirementCondition var) {
-            prompts.prompt(player, "Set compare op (EQ/NEQ/GT/GTE/LT/LTE) and value (ex: GT 5):", msg -> {
+            openOpPicker(player, s, op -> prompts.prompt(player, "Enter value to compare against:", msg -> {
                 if (msg.equalsIgnoreCase("cancel")) return;
-                String[] parts = msg.trim().split(" ", 2);
-                if (parts.length < 2) return;
-                CompareOp op;
-                try { op = CompareOp.valueOf(parts[0].trim().toUpperCase()); } catch (Exception e) { op = CompareOp.EQ; }
-                String val = parts[1].trim();
+                String val = msg.trim();
                 s.conditions.set(idx, new VariableRequirementCondition(placeholders, var.key(), op, val));
                 save(s);
                 Bukkit.getScheduler().runTask(plugin, () -> openConditions(player));
-            });
+            }));
         } else if (c instanceof PlayerHealthCondition ph) {
-            prompts.prompt(player, "Health compare (ex: LT 10):", msg -> {
+            openOpPicker(player, s, op -> prompts.prompt(player, "Enter health value:", msg -> {
                 if (msg.equalsIgnoreCase("cancel")) return;
-                String[] parts = msg.trim().split(" ", 2);
-                if (parts.length < 2) return;
-                CompareOp op;
-                try { op = CompareOp.valueOf(parts[0].trim().toUpperCase()); } catch (Exception e) { op = CompareOp.GT; }
                 try {
-                    double v = Double.parseDouble(parts[1].trim());
+                    double v = Double.parseDouble(msg.trim());
                     s.conditions.set(idx, new PlayerHealthCondition(op, v));
                     save(s);
                     Bukkit.getScheduler().runTask(plugin, () -> openConditions(player));
                 } catch (Exception ignored) {}
-            });
+            }));
         } else if (c instanceof MaxHealthCondition mh) {
-            prompts.prompt(player, "Max health compare (ex: GTE 20):", msg -> {
+            openOpPicker(player, s, op -> prompts.prompt(player, "Enter max health value:", msg -> {
                 if (msg.equalsIgnoreCase("cancel")) return;
-                String[] parts = msg.trim().split(" ", 2);
-                if (parts.length < 2) return;
-                CompareOp op;
-                try { op = CompareOp.valueOf(parts[0].trim().toUpperCase()); } catch (Exception e) { op = CompareOp.GT; }
                 try {
-                    double v = Double.parseDouble(parts[1].trim());
+                    double v = Double.parseDouble(msg.trim());
                     s.conditions.set(idx, new MaxHealthCondition(op, v));
                     save(s);
                     Bukkit.getScheduler().runTask(plugin, () -> openConditions(player));
                 } catch (Exception ignored) {}
-            });
+            }));
         } else if (c instanceof PlayerHungerCondition hg) {
-            prompts.prompt(player, "Hunger compare (ex: LTE 6):", msg -> {
+            openOpPicker(player, s, op -> prompts.prompt(player, "Enter hunger value (0-20):", msg -> {
                 if (msg.equalsIgnoreCase("cancel")) return;
-                String[] parts = msg.trim().split(" ", 2);
-                if (parts.length < 2) return;
-                CompareOp op;
-                try { op = CompareOp.valueOf(parts[0].trim().toUpperCase()); } catch (Exception e) { op = CompareOp.GT; }
                 try {
-                    int v = Integer.parseInt(parts[1].trim());
+                    int v = Integer.parseInt(msg.trim());
                     s.conditions.set(idx, new PlayerHungerCondition(op, v));
                     save(s);
                     Bukkit.getScheduler().runTask(plugin, () -> openConditions(player));
                 } catch (Exception ignored) {}
-            });
+            }));
         } else if (c instanceof RequiredGamemodeCondition gm) {
             GameMode next = switch (gm.mode()) {
                 case SURVIVAL -> GameMode.CREATIVE;
@@ -359,6 +364,32 @@ public final class ConditionalGui {
 
     private void save(Session s) {
         s.onSave.accept(new ConditionalAction(placeholders, s.conditions, s.matchAny, s.thenList, s.elseList));
+    }
+
+    private void openOpPicker(Player player, Session s, Consumer<CompareOp> onPick) {
+        s.pendingOpConsumer = onPick;
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_PICK_OP);
+        fill(inv);
+        inv.setItem(10, named(Material.NAME_TAG, "§aIs equal to", List.of("§7Value is exactly equal")));
+        inv.setItem(11, named(Material.BARRIER, "§cIs not equal to", List.of("§7Value is not equal")));
+        inv.setItem(12, named(Material.ARROW, "§eIs greater than", List.of("§7Value is greater")));
+        inv.setItem(13, named(Material.SPECTRAL_ARROW, "§eIs greater or equal", List.of("§7Value is greater or equal")));
+        inv.setItem(14, named(Material.FEATHER, "§bIs less than", List.of("§7Value is less")));
+        inv.setItem(15, named(Material.LEAD, "§bIs less or equal", List.of("§7Value is less or equal")));
+        inv.setItem(22, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private static CompareOp opFromIcon(Material mat) {
+        return switch (mat) {
+            case NAME_TAG -> CompareOp.EQ;
+            case BARRIER -> CompareOp.NEQ;
+            case ARROW -> CompareOp.GT;
+            case SPECTRAL_ARROW -> CompareOp.GTE;
+            case FEATHER -> CompareOp.LT;
+            case LEAD -> CompareOp.LTE;
+            default -> null;
+        };
     }
 
     private static ItemStack conditionItem(int idx, Condition c) {
@@ -421,6 +452,7 @@ public final class ConditionalGui {
         private final Consumer<ConditionalAction> onSave;
         private final Runnable back;
         private Consumer<ItemStack> pendingItemConsumer;
+        private Consumer<CompareOp> pendingOpConsumer;
 
         private Session(UUID owner, com.tommustbe12.housing.houses.HouseSlot slot, ConditionalAction cond, Consumer<ConditionalAction> onSave, Runnable back) {
             this.owner = owner;

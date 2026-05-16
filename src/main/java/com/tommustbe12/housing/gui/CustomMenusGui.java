@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CustomMenusGui {
     private static final String TITLE_LIST = "Custom Menus";
     private static final String TITLE_EDIT_PREFIX = "Edit Menu: ";
+    private static final String TITLE_DELETE_PREFIX = "Delete Menu: ";
     private static final int MENU_SIZE = CustomMenu.FIXED_SIZE;
 
     private final Plugin plugin;
@@ -35,6 +36,7 @@ public final class CustomMenusGui {
 
     private final ConcurrentHashMap<UUID, UUID> editingMenuId = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, Runnable> backActions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, UUID> pendingDeleteMenuId = new ConcurrentHashMap<>();
 
     public CustomMenusGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, CustomMenusService menus, ActionsEditor actionsEditor, HouseGroupsService groups) {
         this.plugin = plugin;
@@ -46,7 +48,9 @@ public final class CustomMenusGui {
     }
 
     public boolean isTitle(String title) {
-        return TITLE_LIST.equals(title) || (title != null && title.startsWith(TITLE_EDIT_PREFIX));
+        return TITLE_LIST.equals(title)
+                || (title != null && title.startsWith(TITLE_EDIT_PREFIX))
+                || (title != null && title.startsWith(TITLE_DELETE_PREFIX));
     }
 
     public void open(Player player) {
@@ -55,6 +59,7 @@ public final class CustomMenusGui {
 
     public void open(Player player, Runnable backToSystems) {
         backActions.put(player.getUniqueId(), backToSystems == null ? () -> {} : backToSystems);
+        pendingDeleteMenuId.remove(player.getUniqueId());
         var info = houses.getHouseInfoByWorld(player.getWorld());
         if (info == null) return;
         boolean isOwner = info.owner().equals(player.getUniqueId());
@@ -109,10 +114,7 @@ public final class CustomMenusGui {
             if (idx < 0 || idx >= list.size()) return;
             CustomMenu m = list.get(idx);
             if (clickType.isRightClick()) {
-                list.remove(idx);
-                menus.save(info.owner(), info.slot());
-                player.sendMessage("§aMenu deleted.");
-                open(player);
+                openDeleteConfirm(player, info.owner(), info.slot(), m);
                 return;
             }
             openEditor(player, info.owner(), info.slot(), m);
@@ -186,6 +188,34 @@ public final class CustomMenusGui {
                         () -> openEditor(player, info.owner(), info.slot(), menu));
             }
         }
+
+        if (title != null && title.startsWith(TITLE_DELETE_PREFIX)) {
+            if (clicked == null || clicked.getType().isAir()) return;
+            if (clicked.getType() == Material.RED_CONCRETE || clicked.getType() == Material.ARROW) {
+                open(player);
+                return;
+            }
+            if (clicked.getType() == Material.LIME_CONCRETE) {
+                UUID id = pendingDeleteMenuId.get(player.getUniqueId());
+                if (id == null) { open(player); return; }
+                var list = menus.get(info.owner(), info.slot());
+                list.removeIf(m -> m.id().equals(id));
+                menus.save(info.owner(), info.slot());
+                player.sendMessage("§aMenu deleted.");
+                open(player);
+                return;
+            }
+        }
+    }
+
+    private void openDeleteConfirm(Player player, UUID owner, HouseSlot slot, CustomMenu menu) {
+        pendingDeleteMenuId.put(player.getUniqueId(), menu.id());
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_DELETE_PREFIX + menu.name());
+        fill(inv);
+        inv.setItem(11, named(Material.LIME_CONCRETE, "§aConfirm Delete", List.of("§cThis cannot be undone.")));
+        inv.setItem(15, named(Material.RED_CONCRETE, "§cCancel", List.of("§7Return to menu list.")));
+        inv.setItem(26, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        player.openInventory(inv);
     }
 
     public void handleClose(Player player, Inventory inv) {
