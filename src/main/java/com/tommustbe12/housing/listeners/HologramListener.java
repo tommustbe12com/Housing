@@ -7,6 +7,7 @@ import com.tommustbe12.housing.holograms.HologramsService;
 import com.tommustbe12.housing.houses.HouseManager;
 import com.tommustbe12.housing.util.HousingItems;
 import org.bukkit.Location;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -27,6 +28,9 @@ public final class HologramListener implements Listener {
     private final HologramsRuntime runtime;
     private final HologramsGui gui;
 
+    private static final double EDIT_RAY_DISTANCE = 6.0;
+    private static final double EDIT_RAY_RADIUS = 1.5;
+
     public HologramListener(Plugin plugin, HouseManager houses, HologramsService holograms, HologramsRuntime runtime, HologramsGui gui) {
         this.plugin = plugin;
         this.houses = houses;
@@ -39,17 +43,28 @@ public final class HologramListener implements Listener {
     public void onPlace(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
         if (!event.getAction().isRightClick()) return;
-        if (event.getClickedBlock() == null) return;
-
         Player player = event.getPlayer();
-        ItemStack hand = player.getInventory().getItemInMainHand();
-        if (!HousingItems.isHologramPlacerItem(plugin, hand)) return;
 
+        ItemStack hand = player.getInventory().getItemInMainHand();
         var info = houses.getHouseInfoByWorld(player.getWorld());
         if (info == null) return;
 
+        // Easier editing: sneak-right-click anywhere to ray-pick a nearby hologram.
+        if (player.isSneaking()) {
+            UUID picked = rayPickHologram(player);
+            if (picked != null) {
+                event.setCancelled(true);
+                gui.open(player, picked);
+                return;
+            }
+        }
+
+        if (!HousingItems.isHologramPlacerItem(plugin, hand)) return;
+        if (event.getClickedBlock() == null) return;
+
         event.setCancelled(true);
-        Location base = event.getClickedBlock().getLocation().add(0.5, 1.2, 0.5);
+        // Slightly higher so the nameplate is more visible.
+        Location base = event.getClickedBlock().getLocation().add(0.5, 1.8, 0.5);
         base.setYaw(player.getLocation().getYaw());
         base.setPitch(0f);
         base = runtime.ensureAboveGround(base);
@@ -72,16 +87,40 @@ public final class HologramListener implements Listener {
 
         Entity e = event.getRightClicked();
         if (e == null) return;
-        var pdc = e.getPersistentDataContainer();
-        String idStr = pdc.get(runtime.holoIdKey(), PersistentDataType.STRING);
-        if (idStr == null) return;
+
+        UUID id = readHologramId(e);
+        if (id == null) {
+            // If they clicked "near" the tiny marker stand, search in a small radius (and slightly above).
+            Location at = e.getLocation().add(0, 1.0, 0);
+            for (Entity near : e.getWorld().getNearbyEntities(at, 1.5, 2.0, 1.5)) {
+                id = readHologramId(near);
+                if (id != null) break;
+            }
+        }
+        if (id == null) return;
 
         event.setCancelled(true);
         if (!player.isSneaking()) return;
-        try {
-            UUID id = UUID.fromString(idStr);
-            gui.open(player, id);
-        } catch (Exception ignored) {}
+        gui.open(player, id);
+    }
+
+    private UUID rayPickHologram(Player player) {
+        RayTraceResult hit = player.getWorld().rayTraceEntities(
+                player.getEyeLocation(),
+                player.getEyeLocation().getDirection(),
+                EDIT_RAY_DISTANCE,
+                EDIT_RAY_RADIUS,
+                e -> readHologramId(e) != null
+        );
+        if (hit == null) return null;
+        Entity e = hit.getHitEntity();
+        return e == null ? null : readHologramId(e);
+    }
+
+    private UUID readHologramId(Entity e) {
+        if (e == null) return null;
+        String idStr = e.getPersistentDataContainer().get(runtime.holoIdKey(), PersistentDataType.STRING);
+        if (idStr == null) return null;
+        try { return UUID.fromString(idStr); } catch (Exception ex) { return null; }
     }
 }
-

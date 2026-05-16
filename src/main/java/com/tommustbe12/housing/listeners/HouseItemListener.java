@@ -194,10 +194,20 @@ public final class HouseItemListener implements Listener {
 
         if (!ours) return;
 
-        // Allow editing inventory layouts / npc equipment slots
-        if (title != null && (title.startsWith("Edit Layout: ") || "NPC Equipment".equals(title))) {
+        // Allow editing inventory layouts / npc equipment slots / give-remove item pickers
+        if (title != null && (title.startsWith("Edit Layout: ")
+                || "NPC Equipment".equals(title)
+                || actionsEditor.isGiveItemTitle(title)
+                || actionsEditor.isRemoveItemTitle(title))) {
             int raw = event.getRawSlot();
-            if (title.startsWith("Edit Layout: ")) {
+            if (actionsEditor.isGiveItemTitle(title) || actionsEditor.isRemoveItemTitle(title)) {
+                int topSize = event.getView().getTopInventory().getSize();
+                // Allow placing/picking only in the center slot (13). Block taking GUI buttons/filler.
+                if (raw < topSize) {
+                    boolean editable = raw == 13;
+                    if (!editable) event.setCancelled(true);
+                } // allow bottom inventory interactions + shift-clicking into slot 13
+            } else if (title.startsWith("Edit Layout: ")) {
                 // Hotbar slot 8 (reserved for Housing menu star) is editor slot 35 (bottom-right).
                 if (raw == 35) event.setCancelled(true);
                 if (raw == 49 || raw == 52 || raw == 53) event.setCancelled(true);
@@ -699,6 +709,17 @@ public final class HouseItemListener implements Listener {
     public void onInvDrag(InventoryDragEvent event) {
         if (event.getView().getType() != InventoryType.CHEST) return;
         String title = event.getView().getTitle();
+        if (actionsEditor.isGiveItemTitle(title) || actionsEditor.isRemoveItemTitle(title)) {
+            int topSize = event.getView().getTopInventory().getSize();
+            for (int slot : event.getRawSlots()) {
+                if (slot >= topSize) continue;
+                if (slot != 13) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+            return;
+        }
         boolean ours = TITLE_MAIN.equals(title)
                 || TITLE_HOUSES.equals(title)
                 || TITLE_HOT.equals(title)
