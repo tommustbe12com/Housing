@@ -113,8 +113,25 @@ public final class HologramListener implements Listener {
                 e -> readHologramId(e) != null
         );
         if (hit == null) return null;
-        Entity e = hit.getHitEntity();
-        return e == null ? null : readHologramId(e);
+        Entity hitEntity = hit.getHitEntity();
+        if (hitEntity == null) return null;
+        UUID primary = readHologramId(hitEntity);
+        if (primary == null) return null;
+
+        // If multiple hologram stands are clustered, pick the closest one to the ray hit position.
+        Location hp = hit.getHitPosition() == null ? hitEntity.getLocation() : hit.getHitPosition().toLocation(player.getWorld());
+        UUID best = primary;
+        double bestDist = hp.distanceSquared(hitEntity.getLocation());
+        for (Entity near : hitEntity.getWorld().getNearbyEntities(hp, 1.75, 2.5, 1.75)) {
+            UUID id = readHologramId(near);
+            if (id == null) continue;
+            double d = hp.distanceSquared(near.getLocation());
+            if (d < bestDist) {
+                bestDist = d;
+                best = id;
+            }
+        }
+        return best;
     }
 
     private UUID readHologramId(Entity e) {

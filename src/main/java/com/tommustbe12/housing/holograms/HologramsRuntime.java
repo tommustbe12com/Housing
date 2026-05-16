@@ -58,6 +58,16 @@ public final class HologramsRuntime {
         spawnedEntityIdsByHologram.clear();
     }
 
+    public void despawn(World world, UUID hologramId) {
+        if (world == null || hologramId == null) return;
+        List<UUID> ids = spawnedEntityIdsByHologram.remove(hologramId);
+        if (ids == null) return;
+        for (UUID eid : ids) {
+            Entity e = world.getEntity(eid);
+            if (e != null) e.remove();
+        }
+    }
+
     public void spawnOrUpdate(UUID owner, HouseSlot slot, World world, HologramData h) {
         if (world == null || h == null || h.location() == null) return;
 
@@ -114,4 +124,3 @@ public final class HologramsRuntime {
         return out;
     }
 }
-

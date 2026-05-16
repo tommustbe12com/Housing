@@ -82,11 +82,15 @@ public final class HologramsGui {
         if (clicked.getType() == Material.GREEN_DYE) {
             if (h.lines().size() >= MAX_LINES) return;
             h.lines().add("§fNew line");
+            holograms.save(info.owner(), info.slot(), player.getWorld());
+            runtime.spawnOrUpdate(info.owner(), info.slot(), player.getWorld(), h);
             open(player, hid);
             return;
         }
         if (clicked.getType() == Material.RED_DYE) {
             if (!h.lines().isEmpty()) h.lines().remove(h.lines().size() - 1);
+            holograms.save(info.owner(), info.slot(), player.getWorld());
+            runtime.spawnOrUpdate(info.owner(), info.slot(), player.getWorld(), h);
             open(player, hid);
             return;
         }
@@ -94,7 +98,7 @@ public final class HologramsGui {
             var list = holograms.get(info.owner(), info.slot(), player.getWorld());
             list.removeIf(x -> x.id().equals(hid));
             holograms.save(info.owner(), info.slot(), player.getWorld());
-            runtime.spawnAll(info.owner(), info.slot(), player.getWorld());
+            runtime.despawn(player.getWorld(), hid);
             editingHologramId.remove(player.getUniqueId());
             player.closeInventory();
             player.sendMessage("§aHologram deleted.");
@@ -115,6 +119,8 @@ public final class HologramsGui {
                 if (msg.equalsIgnoreCase("cancel")) return;
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     h.lines().set(lineIndex, msg);
+                    holograms.save(info.owner(), info.slot(), player.getWorld());
+                    runtime.spawnOrUpdate(info.owner(), info.slot(), player.getWorld(), h);
                     open(player, hid);
                 });
             });
@@ -136,4 +142,3 @@ public final class HologramsGui {
         for (int i = 0; i < 10; i++) inv.setItem(10 + i, null);
     }
 }
-
