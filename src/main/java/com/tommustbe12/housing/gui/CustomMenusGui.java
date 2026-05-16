@@ -201,11 +201,9 @@ public final class CustomMenusGui {
             if (i >= 27 && i < 45) inv.setItem(i, pane);
             else inv.setItem(i, null);
         }
-        for (int i = 0; i < MENU_SIZE; i++) if (isDividerSlot(i)) inv.setItem(i, pane);
 
         ItemStack[] contents = menu.contents();
         for (int i = 0; i < Math.min(MENU_SIZE, contents.length); i++) {
-            if (isDividerSlot(i)) continue;
             inv.setItem(i, contents[i]);
         }
 
@@ -218,7 +216,7 @@ public final class CustomMenusGui {
         inv.setItem(51, pane);
         inv.setItem(52, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         inv.setItem(53, named(Material.LIME_CONCRETE, "§aSave", List.of("§7Save menu items.")));
-        inv.setItem(44, named(Material.OAK_SIGN, "§bTitle", List.of("§7Click to change the menu title.", "§7Current: §f" + menu.title())));
+        inv.setItem(48, named(Material.OAK_SIGN, "§bTitle", List.of("§7Click to change the menu title.", "§7Current: §f" + menu.title())));
 
         HousingItems.ensureMenuStar(plugin, player);
         player.openInventory(inv);
@@ -227,18 +225,13 @@ public final class CustomMenusGui {
     private void saveFromEditor(Player player, UUID owner, HouseSlot slot, CustomMenu menu) {
         Inventory inv = player.getOpenInventory().getTopInventory();
         ItemStack[] contents = new ItemStack[MENU_SIZE];
-        ItemStack pane = dividerPane();
         for (int i = 0; i < MENU_SIZE; i++) {
-            if (isDividerSlot(i)) {
-                contents[i] = pane;
-                continue;
-            }
             ItemStack it = inv.getItem(i);
             if (HousingItems.isMenuStar(plugin, it)) it = null;
             contents[i] = it;
         }
         menu.setContents(contents);
-        menu.slotActions().entrySet().removeIf(e -> e.getKey() < 0 || e.getKey() >= MENU_SIZE || isDividerSlot(e.getKey()));
+        menu.slotActions().entrySet().removeIf(e -> e.getKey() < 0 || e.getKey() >= MENU_SIZE);
         menus.save(owner, slot);
     }
 
@@ -263,13 +256,10 @@ public final class CustomMenusGui {
     }
 
     public static boolean isDividerSlot(int slot) {
-        if (slot < 0 || slot >= MENU_SIZE) return false;
-        // Single black glass bar through the middle row to "separate" the menu.
-        return slot >= 9 && slot < 18;
+        return false;
     }
 
     public static ItemStack dividerPane() {
         return named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
     }
 }
-

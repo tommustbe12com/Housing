@@ -154,8 +154,6 @@ public final class Housing extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.HouseCommandSuggestionsListener(this, houseManager), this);
         getServer().getPluginManager().registerEvents(new HouseRespawnListener(this, houseManager, actionsService, inventoryService), this);
         getServer().getPluginManager().registerEvents(new com.tommustbe12.housing.listeners.NetherStarLockListener(this), this);
-        getServer().getPluginManager().registerEvents(new CustomMenusGuiListener(customMenusGui), this);
-        getServer().getPluginManager().registerEvents(new CustomMenuRuntimeListener(this, debug, customMenusService), this);
 
         // 24/7 ensure players always have the correct hub/house items.
         getServer().getScheduler().runTaskTimer(this, () -> {

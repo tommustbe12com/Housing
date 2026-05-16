@@ -55,8 +55,6 @@ public final class CustomMenusStorage {
                     }
                 }
                 menu.setContents(contents);
-                // Ensure divider panes exist in the fixed layout.
-                for (int i = 0; i < contents.length; i++) if (CustomMenusGui.isDividerSlot(i)) contents[i] = CustomMenusGui.dividerPane();
 
                 ConfigurationSection a = m.getConfigurationSection("actions");
                 if (a != null) {
@@ -79,8 +77,8 @@ public final class CustomMenusStorage {
                     }
                 }
 
-                // Enforce fixed layout: purge any invalid action slots (and divider panes).
-                menu.slotActions().entrySet().removeIf(e -> e.getKey() < 0 || e.getKey() >= CustomMenu.FIXED_SIZE || CustomMenusGui.isDividerSlot(e.getKey()));
+                // Enforce fixed layout: purge any invalid action slots.
+                menu.slotActions().entrySet().removeIf(e -> e.getKey() < 0 || e.getKey() >= CustomMenu.FIXED_SIZE);
                 out.add(menu);
             } catch (Exception ignored) {}
         }

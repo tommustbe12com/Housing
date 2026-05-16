@@ -42,10 +42,8 @@ public final class OpenCustomMenuAction implements Action {
         Inventory inv = Bukkit.createInventory(holder, CustomMenu.FIXED_SIZE, menu.title());
         ItemStack[] src = menu.contents();
         ItemStack[] out = new ItemStack[CustomMenu.FIXED_SIZE];
-        ItemStack pane = CustomMenusGui.dividerPane();
         for (int i = 0; i < out.length; i++) {
-            if (CustomMenusGui.isDividerSlot(i)) out[i] = pane;
-            else out[i] = (src != null && i < src.length) ? src[i] : null;
+            out[i] = (src != null && i < src.length) ? src[i] : null;
         }
         inv.setContents(out);
         player.closeInventory();

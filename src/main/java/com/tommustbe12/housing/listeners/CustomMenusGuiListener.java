@@ -36,23 +36,12 @@ public final class CustomMenusGuiListener implements Listener {
         // In the editor (top inventory), allow placing items, but protect the control row from taking items.
         if (title != null && title.startsWith("Edit Menu: ")) {
             if (raw >= 45 && raw < topSize) event.setCancelled(true);
-            ItemStack current = event.getCurrentItem();
-            if (raw >= 0 && raw < topSize && current != null && current.getType() == org.bukkit.Material.BLACK_STAINED_GLASS_PANE) {
-                event.setCancelled(true);
-            }
             if (raw >= 27 && raw < 45) event.setCancelled(true);
 
             // For action editing: right-clicking an item should never move it, it should open the action editor.
             if (raw >= 0 && raw < 27 && event.getClick().isRightClick()) event.setCancelled(true);
         } else {
             event.setCancelled(true);
-        }
-
-        // Only treat editor slot right-click as "edit actions" (left click should behave like normal inventory editing).
-        if (title != null && title.startsWith("Edit Menu: ")) {
-            if (raw >= 0 && raw < 45 && !event.getClick().isRightClick()) {
-                return;
-            }
         }
 
         ItemStack clicked = event.getCurrentItem();
