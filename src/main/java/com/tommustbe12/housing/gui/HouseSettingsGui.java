@@ -25,12 +25,12 @@ public final class HouseSettingsGui {
     private final HouseGroupsService groups;
     private final BannedPlayersGui bannedGui;
 
-    public HouseSettingsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, GroupsGui groupsGui, HouseGroupsService groups) {
+    public HouseSettingsGui(Plugin plugin, ChatPrompts prompts, HouseManager houses, GroupsGui groupsGui, HouseGroupsService groups, BannedPlayersGui bannedGui) {
         this.plugin = plugin;
         this.prompts = prompts;
         this.houses = houses;
         this.groups = groups;
-        this.bannedGui = new BannedPlayersGui(plugin, houses, groups);
+        this.bannedGui = bannedGui == null ? new BannedPlayersGui(plugin, houses, groups) : bannedGui;
     }
 
     public boolean isTitle(String title) {
@@ -118,4 +118,3 @@ public final class HouseSettingsGui {
         for (int i = 0; i < inv.getSize(); i++) if (inv.getItem(i) == null) inv.setItem(i, filler);
     }
 }
-

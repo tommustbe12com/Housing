@@ -76,6 +76,7 @@ public final class CustomMenusGuiListener implements Listener {
         if (!(event.getPlayer() instanceof Player player)) return;
         String title = event.getView().getTitle();
         if (!gui.isTitle(title)) return;
-        gui.handleClose(player, event.getInventory());
+        // Don't clear edit state when transitioning from list -> editor (the list inventory closes).
+        if (title != null && title.startsWith("Edit Menu: ")) gui.handleClose(player, event.getInventory());
     }
 }
