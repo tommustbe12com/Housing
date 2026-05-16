@@ -21,11 +21,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class BannedPlayersGui {
     private static final String TITLE = "Banned Players";
+    private static final String TITLE_CONFIRM_PREFIX = "Unban: ";
 
     private final Plugin plugin;
     private final HouseManager houses;
     private final HouseGroupsService groups;
     private final Map<UUID, List<UUID>> orderByViewer = new ConcurrentHashMap<>();
+    private final Map<UUID, UUID> pendingUnbanByViewer = new ConcurrentHashMap<>();
 
     public BannedPlayersGui(Plugin plugin, HouseManager houses, HouseGroupsService groups) {
         this.plugin = plugin;
@@ -34,15 +36,16 @@ public final class BannedPlayersGui {
     }
 
     public boolean isTitle(String title) {
-        return TITLE.equals(title);
+        return TITLE.equals(title) || (title != null && title.startsWith(TITLE_CONFIRM_PREFIX));
     }
 
     public void open(Player viewer, Runnable back) {
+        pendingUnbanByViewer.remove(viewer.getUniqueId());
         var info = houses.getHouseInfoByWorld(viewer.getWorld());
         if (info == null) return;
         boolean isOwner = info.owner().equals(viewer.getUniqueId());
         if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), viewer.getUniqueId(), HousePermission.BAN))) {
-            viewer.sendMessage("§cYou don't have permission to manage bans in this house.");
+            viewer.sendMessage("Â§cYou don't have permission to manage bans in this house.");
             return;
         }
 
@@ -58,11 +61,11 @@ public final class BannedPlayersGui {
         for (UUID pid : order) {
             if (i >= 45) break;
             OfflinePlayer off = Bukkit.getOfflinePlayer(pid);
-            inv.setItem(i++, skull(off, "§c" + (off.getName() == null ? pid.toString() : off.getName()),
-                    List.of("§7Click to unban")));
+            inv.setItem(i++, skull(off, "Â§c" + (off.getName() == null ? pid.toString() : off.getName()),
+                    List.of("Â§7Click to unban")));
         }
 
-        inv.setItem(53, named(Material.ARROW, "§7Back", List.of("§7Return.")));
+        inv.setItem(53, named(Material.ARROW, "Â§7Back", List.of("Â§7Return.")));
         viewer.openInventory(inv);
     }
 
@@ -73,6 +76,26 @@ public final class BannedPlayersGui {
         boolean isOwner = info.owner().equals(viewer.getUniqueId());
         if (!isOwner && (groups == null || !groups.has(info.owner(), info.slot(), viewer.getUniqueId(), HousePermission.BAN))) return;
 
+        String title = viewer.getOpenInventory().getTitle();
+        if (title != null && title.startsWith(TITLE_CONFIRM_PREFIX)) {
+            if (clicked.getType() == Material.RED_CONCRETE || clicked.getType() == Material.ARROW) {
+                open(viewer, back);
+                return;
+            }
+            if (clicked.getType() == Material.LIME_CONCRETE) {
+                UUID target = pendingUnbanByViewer.get(viewer.getUniqueId());
+                if (target == null) {
+                    open(viewer, back);
+                    return;
+                }
+                groups.setBanned(info.owner(), info.slot(), target, false);
+                viewer.sendMessage("Â§aUnbanned.");
+                open(viewer, back);
+                return;
+            }
+            return;
+        }
+
         if (clicked.getType() == Material.ARROW) {
             back.run();
             return;
@@ -81,9 +104,20 @@ public final class BannedPlayersGui {
         List<UUID> order = orderByViewer.get(viewer.getUniqueId());
         if (order == null || rawSlot >= order.size()) return;
         UUID target = order.get(rawSlot);
-        groups.setBanned(info.owner(), info.slot(), target, false);
-        viewer.sendMessage("§aUnbanned.");
-        open(viewer, back);
+        openConfirm(viewer, target);
+    }
+
+    private void openConfirm(Player viewer, UUID target) {
+        pendingUnbanByViewer.put(viewer.getUniqueId(), target);
+        String name = Bukkit.getOfflinePlayer(target).getName();
+        if (name == null || name.isBlank()) name = target.toString();
+
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE_CONFIRM_PREFIX + name);
+        fill(inv);
+        inv.setItem(11, named(Material.LIME_CONCRETE, "Â§aConfirm Unban", List.of("Â§7Are you sure you want to unban", "Â§f" + name + "Â§7?")));
+        inv.setItem(15, named(Material.RED_CONCRETE, "Â§cCancel", List.of("Â§7Return to banned players list.")));
+        inv.setItem(26, named(Material.ARROW, "Â§7Back", List.of("Â§7Return.")));
+        viewer.openInventory(inv);
     }
 
     private static ItemStack skull(OfflinePlayer owner, String name, List<String> lore) {

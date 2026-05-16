@@ -22,9 +22,12 @@ public final class BannedPlayersGuiListener implements Listener {
         if (event.getView().getType() != InventoryType.CHEST) return;
         String title = event.getView().getTitle();
         if (!gui.isTitle(title)) return;
+        int topSize = event.getView().getTopInventory().getSize();
+        int raw = event.getRawSlot();
+        if (raw >= topSize) return;
         event.setCancelled(true);
         ItemStack clicked = event.getCurrentItem();
-        gui.handleClick(player, event.getRawSlot(), clicked, () -> player.closeInventory());
+        gui.handleClick(player, raw, clicked, () -> player.closeInventory());
     }
 
     @EventHandler
@@ -35,4 +38,3 @@ public final class BannedPlayersGuiListener implements Listener {
         event.setCancelled(true);
     }
 }
-
