@@ -343,9 +343,11 @@ public final class ActionsEditor {
                 list.actions().add(cond);
                 int idx = list.actions().size() - 1;
                 conditionalGui.open(player, session.owner, session.slot, cond, updated -> {
+                    // Don't capture the `list` reference: always write to the current session list.
+                    ActionList current = session.list();
                     // The underlying list may have been changed by other edits; be defensive.
-                    if (idx >= 0 && idx < list.actions().size()) list.actions().set(idx, updated);
-                    else list.actions().add(updated);
+                    if (idx >= 0 && idx < current.actions().size()) current.actions().set(idx, updated);
+                    else current.actions().add(updated);
                     save(session);
                 }, () -> openList(player, session));
             }
@@ -1818,7 +1820,9 @@ public final class ActionsEditor {
                 return;
             }
             conditionalGui.open(player, session.owner, session.slot, cond, updated -> {
-                list.actions().set(index, updated);
+                // Don't capture the `list` reference: always write to the current session list.
+                ActionList current = session.list();
+                if (index >= 0 && index < current.actions().size()) current.actions().set(index, updated);
                 save(session);
             }, () -> openList(player, session));
             return;
