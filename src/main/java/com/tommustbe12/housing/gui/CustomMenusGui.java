@@ -181,8 +181,12 @@ public final class CustomMenusGui {
                         list,
                         updated -> {
                             var target = editRight ? slotActions.right() : slotActions.left();
-                            target.actions().clear();
-                            target.actions().addAll(updated.actions());
+                            // `updated` is typically the same ActionList instance passed into the editor.
+                            // Clearing `target` (which can be the same instance) would wipe the changes.
+                            if (target != updated) {
+                                target.actions().clear();
+                                target.actions().addAll(updated.actions());
+                            }
                             menus.save(info.owner(), info.slot());
                         },
                         () -> openEditor(player, info.owner(), info.slot(), menu));

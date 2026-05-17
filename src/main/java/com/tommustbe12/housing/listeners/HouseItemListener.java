@@ -194,6 +194,38 @@ public final class HouseItemListener implements Listener {
 
         if (!ours) return;
 
+        // Actions editor UIs should behave like normal GUIs: block taking/moving items in the top inventory,
+        // but allow the player's inventory to function normally.
+        if (title != null && (actionsEditor.isEditorTitle(title)
+                || actionsEditor.isAddTitle(title)
+                || actionsEditor.isFunctionPickerTitle(title)
+                || actionsEditor.isLayoutPickerTitle(title)
+                || actionsEditor.isTeamPickerTitle(title)
+                || actionsEditor.isGroupPickerTitle(title)
+                || actionsEditor.isMenuPickerTitle(title)
+                || actionsEditor.isChangeVariableTitle(title)
+                || actionsEditor.isPickSlotTitle(title)
+                || actionsEditor.isCompassTitle(title)
+                || actionsEditor.isGamemodeTitle(title)
+                || actionsEditor.isDropItemTitle(title)
+                || actionsEditor.isVelocityTitle(title)
+                || actionsEditor.isLaunchTitle(title)
+                || actionsEditor.isEnchantTitle(title)
+                || actionsEditor.isEnchantSelectTitle(title)
+                || actionsEditor.isRandomTitle(title)
+                || actionsEditor.isPotionTitle(title)
+                || actionsEditor.isPotionEffectTitle(title)
+                || actionsEditor.isNumberTitle(title)
+                || actionsEditor.isTeleportTitle(title)
+                || actionsEditor.isPauseTitle(title)
+                || actionsEditor.isMaxHealthTitle(title)
+                || actionsEditor.isHealthTitle(title)
+                || actionsEditor.isHungerTitle(title)
+                || actionsEditor.isPlaySoundTitle(title))) {
+            int raw = event.getRawSlot();
+            int topSize = event.getView().getTopInventory().getSize();
+            if (raw < topSize) event.setCancelled(true);
+        }
         // Allow editing inventory layouts / npc equipment slots / give-remove item pickers
         if (title != null && (title.startsWith("Edit Layout: ")
                 || "NPC Equipment".equals(title)
