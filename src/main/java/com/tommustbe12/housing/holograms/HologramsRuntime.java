@@ -49,6 +49,14 @@ public final class HologramsRuntime {
 
     public void despawnAll(World world) {
         if (world == null) return;
+        // If the server restarts/crashes, armor stands are persisted in the world but our runtime tracking map
+        // is empty. Always do a best-effort cleanup pass by scanning for hologram-tagged entities.
+        for (ArmorStand stand : world.getEntitiesByClass(ArmorStand.class)) {
+            try {
+                var pdc = stand.getPersistentDataContainer();
+                if (pdc.has(holoIdKey, PersistentDataType.STRING)) stand.remove();
+            } catch (Exception ignored) {}
+        }
         for (List<UUID> ids : new ArrayList<>(spawnedEntityIdsByHologram.values())) {
             for (UUID eid : ids) {
                 Entity e = world.getEntity(eid);
@@ -61,10 +69,20 @@ public final class HologramsRuntime {
     public void despawn(World world, UUID hologramId) {
         if (world == null || hologramId == null) return;
         List<UUID> ids = spawnedEntityIdsByHologram.remove(hologramId);
-        if (ids == null) return;
-        for (UUID eid : ids) {
-            Entity e = world.getEntity(eid);
-            if (e != null) e.remove();
+        if (ids != null) {
+            for (UUID eid : ids) {
+                Entity e = world.getEntity(eid);
+                if (e != null) e.remove();
+            }
+        }
+        // Best-effort removal for persisted holograms after restart (when we don't have entity ids tracked).
+        String target = hologramId.toString();
+        for (ArmorStand stand : world.getEntitiesByClass(ArmorStand.class)) {
+            try {
+                var pdc = stand.getPersistentDataContainer();
+                String id = pdc.get(holoIdKey, PersistentDataType.STRING);
+                if (target.equals(id)) stand.remove();
+            } catch (Exception ignored) {}
         }
     }
 

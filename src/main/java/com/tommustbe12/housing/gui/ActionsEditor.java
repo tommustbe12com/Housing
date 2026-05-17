@@ -192,6 +192,9 @@ public final class ActionsEditor {
         if (session == null) return;
 
         if (rawSlot == 53) {
+            // Treat "Back" as "Done" for standalone editors (used by ConditionalGui for if/else action lists).
+            // Otherwise, users can make changes and lose them by backing out before a save-triggering click.
+            if (session.kind == Kind.STANDALONE) save(session);
             sessions.remove(player.getUniqueId());
             (session.back != null ? session.back : fallbackBack).run();
             return;
