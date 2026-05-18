@@ -202,7 +202,8 @@ public final class SimpleActionCodec implements ActionCodec {
                         if (groupIdRaw != null && !groupIdRaw.isBlank()) gid = UUID.fromString(groupIdRaw);
                     } catch (Exception ignored) {}
                     String legacy = string(m, "group");
-                    out.add(new RequiredGroupCondition(gid, legacy));
+                    boolean allowHigher = bool(m, "allowHigher", false);
+                    out.add(new RequiredGroupCondition(gid, legacy, allowHigher));
                 }
                 case "variable_requirement" -> out.add(new VariableRequirementCondition(placeholders, string(m, "key"),
                         parseCompare(string(m, "op")), string(m, "value")));

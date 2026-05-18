@@ -140,6 +140,7 @@ public final class SimpleActionSerializer implements ActionSerializer {
         if (c instanceof RequiredGroupCondition g) {
             if (g.requiredGroupId() != null) out.put("groupId", g.requiredGroupId().toString());
             if (g.requiredGroupLegacyName() != null && !g.requiredGroupLegacyName().isBlank()) out.put("group", g.requiredGroupLegacyName());
+            out.put("allowHigher", g.allowHigherPriority());
         }
         if (c instanceof VariableRequirementCondition v) {
             out.put("key", v.key());

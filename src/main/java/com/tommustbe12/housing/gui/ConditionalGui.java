@@ -138,9 +138,10 @@ public final class ConditionalGui {
             if (session.pendingGroupConsumer == null) return;
             UUID gid = groupIdFromItem(clicked);
             if (gid == null) return;
-            Consumer<UUID> consumer = session.pendingGroupConsumer;
+            boolean higher = clickType != null && clickType.isRightClick();
+            java.util.function.BiConsumer<UUID, Boolean> consumer = session.pendingGroupConsumer;
             session.pendingGroupConsumer = null;
-            consumer.accept(gid);
+            consumer.accept(gid, higher);
             return;
         }
 
@@ -226,8 +227,8 @@ public final class ConditionalGui {
 
     private void addConditionFromIcon(Player player, Session s, Material icon) {
         if (icon == Material.NAME_TAG) {
-            openGroupPicker(player, s, gid -> {
-                s.conditions.add(new RequiredGroupCondition(gid));
+            openGroupPicker(player, s, (gid, higher) -> {
+                s.conditions.add(new RequiredGroupCondition(gid, null, higher));
                 save(s);
                 openConditions(player);
             });
@@ -359,8 +360,8 @@ public final class ConditionalGui {
             save(s);
             openConditions(player);
         } else if (c instanceof RequiredGroupCondition grp) {
-            openGroupPicker(player, s, gid -> {
-                s.conditions.set(idx, new RequiredGroupCondition(gid, grp.requiredGroupLegacyName()));
+            openGroupPicker(player, s, (gid, higher) -> {
+                s.conditions.set(idx, new RequiredGroupCondition(gid, grp.requiredGroupLegacyName(), higher));
                 save(s);
                 openConditions(player);
             });
@@ -401,7 +402,7 @@ public final class ConditionalGui {
         player.openInventory(inv);
     }
 
-    private void openGroupPicker(Player player, Session s, Consumer<UUID> onPick) {
+    private void openGroupPicker(Player player, Session s, java.util.function.BiConsumer<UUID, Boolean> onPick) {
         s.pendingGroupConsumer = onPick;
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_GROUP);
         fill(inv);
@@ -414,23 +415,26 @@ public final class ConditionalGui {
                 inv.setItem(i++, groupItem(g));
             }
         }
-        inv.setItem(53, named(Material.ARROW, "Â§7Back", List.of("Â§7Return.")));
+        inv.setItem(45, named(Material.PAPER, "§eHow to select", List.of("§7Left-click: exact group", "§7Right-click: this group or higher")));
+        inv.setItem(53, named(Material.ARROW, "§7Back", List.of("§7Return.")));
         player.openInventory(inv);
     }
 
     private static ItemStack groupItem(HouseGroup g) {
         List<String> lore = new ArrayList<>();
-        lore.add("Â§7Click to select");
-        lore.add("Â§8id: " + g.id());
-        lore.add("Â§7tag: " + (g.tag() == null ? "" : g.tag()));
-        return named(Material.NAME_TAG, "Â§f" + g.name(), lore);
+        lore.add("§7Left-click: exact");
+        lore.add("§7Right-click: this or higher");
+        lore.add("§8id: " + g.id());
+        lore.add("§7tag: " + (g.tag() == null ? "" : g.tag()));
+        return named(Material.NAME_TAG, "§f" + g.name(), lore);
     }
 
     private static UUID groupIdFromItem(ItemStack item) {
         if (item == null || !item.hasItemMeta() || item.getItemMeta().getLore() == null) return null;
         for (String line : item.getItemMeta().getLore()) {
-            if (line.startsWith("Â§8id: ")) {
-                try { return UUID.fromString(line.substring("Â§8id: ".length()).trim()); } catch (Exception ignored) {}
+            if (line.startsWith("§8id: ") || line.startsWith("Â§8id: ")) {
+                String raw = line.startsWith("§8id: ") ? line.substring("§8id: ".length()) : line.substring("Â§8id: ".length());
+                try { return UUID.fromString(raw.trim()); } catch (Exception ignored) {}
             }
         }
         return null;
@@ -467,7 +471,10 @@ public final class ConditionalGui {
         lore.add("§7Right-click: remove");
         lore.add("§8#" + idx);
         if (c instanceof VariableRequirementCondition v) lore.add("§7" + v.key() + " §f" + v.op() + " §7" + v.value());
-        if (c instanceof RequiredGroupCondition g) lore.add("§7groupId: §f" + (g.requiredGroupId() == null ? "" : g.requiredGroupId()));
+        if (c instanceof RequiredGroupCondition g) {
+            lore.add("§7groupId: §f" + (g.requiredGroupId() == null ? "" : g.requiredGroupId()));
+            lore.add("§7mode: §f" + (g.allowHigherPriority() ? "THIS OR HIGHER" : "EXACT"));
+        }
         if (c instanceof HasPotionEffectCondition p) lore.add("§7effect: §f" + p.effect());
         if (c instanceof RequiredGamemodeCondition gm) lore.add("§7mode: §f" + gm.mode().name());
         return named(mat, "§f" + c.type(), lore);
@@ -509,7 +516,7 @@ public final class ConditionalGui {
         private final Runnable back;
         private Consumer<ItemStack> pendingItemConsumer;
         private Consumer<CompareOp> pendingOpConsumer;
-        private Consumer<UUID> pendingGroupConsumer;
+        private java.util.function.BiConsumer<UUID, Boolean> pendingGroupConsumer;
 
         private Session(UUID owner, HouseSlot slot, ConditionalAction cond, Consumer<ConditionalAction> onSave, Runnable back) {
             this.owner = owner;

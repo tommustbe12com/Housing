@@ -12,14 +12,20 @@ public final class RequiredGroupCondition implements Condition {
     private final UUID requiredGroupId;
     // Backwards-compat: old configs stored a group name and compared it against %stat.group%.
     private final String requiredGroupLegacyName;
+    private final boolean allowHigherPriority;
 
     public RequiredGroupCondition(UUID requiredGroupId) {
         this(requiredGroupId, null);
     }
 
     public RequiredGroupCondition(UUID requiredGroupId, String requiredGroupLegacyName) {
+        this(requiredGroupId, requiredGroupLegacyName, false);
+    }
+
+    public RequiredGroupCondition(UUID requiredGroupId, String requiredGroupLegacyName, boolean allowHigherPriority) {
         this.requiredGroupId = requiredGroupId;
         this.requiredGroupLegacyName = requiredGroupLegacyName;
+        this.allowHigherPriority = allowHigherPriority;
     }
 
     @Override
@@ -49,7 +55,11 @@ public final class RequiredGroupCondition implements Condition {
             if (explicit != null && groups.groups().containsKey(explicit)) effectiveGroupId = explicit;
             else effectiveGroupId = groups.defaultGroupId();
         }
-        return requiredGroupId.equals(effectiveGroupId);
+        if (!allowHigherPriority) return requiredGroupId.equals(effectiveGroupId);
+        var required = groups.get(requiredGroupId);
+        var effective = groups.get(effectiveGroupId);
+        if (required == null || effective == null) return requiredGroupId.equals(effectiveGroupId);
+        return effective.priority() >= required.priority();
     }
 
     public UUID requiredGroupId() {
@@ -58,5 +68,9 @@ public final class RequiredGroupCondition implements Condition {
 
     public String requiredGroupLegacyName() {
         return requiredGroupLegacyName;
+    }
+
+    public boolean allowHigherPriority() {
+        return allowHigherPriority;
     }
 }
