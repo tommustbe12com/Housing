@@ -904,18 +904,19 @@ public final class HouseItemListener implements Listener {
         ItemStack border = named(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, border);
 
-        int[] clear = new int[]{10,12,14,16,20,22,24,26,28};
+        // Simple list layout (no checker pattern)
+        int[] clear = new int[]{10,11,12,13,14,15,16,19,24};
         for (int idx : clear) inv.setItem(idx, null);
 
-        inv.setItem(10, named(Material.REDSTONE, "§eEvent Actions", List.of("§7Configure triggers.")));
-        inv.setItem(12, named(Material.BOOK, "§fFunctions", List.of("§7Reusable action lists.")));
-        inv.setItem(14, named(Material.COMMAND_BLOCK, "§dCommands", List.of("§7House commands.")));
-        inv.setItem(16, named(Material.OAK_SIGN, "§bScoreboard", List.of("§7Edit scoreboard.")));
-        inv.setItem(20, named(Material.CHEST, "§6Inventory Layouts", List.of("§7Saved inventories.")));
-        inv.setItem(22, named(Material.ITEM_FRAME, "§aCustom Menus", List.of("§7Create clickable GUIs.")));
-        inv.setItem(24, named(Material.ARMOR_STAND, "§eNPCs", List.of("§7Create and edit NPCs.")));
-        inv.setItem(26, named(Material.MAP, "§aRegions", List.of("§7WorldEdit-style regions.")));
-        inv.setItem(28, named(Material.WHITE_BANNER, "§bTeams", List.of("§7Create and edit teams.")));
+        inv.setItem(10, named(Material.GRASS_BLOCK, "§aRegions", List.of("§7WorldEdit-style regions.")));
+        inv.setItem(11, named(Material.COBWEB, "§eEvent Actions", List.of("§7Configure triggers.")));
+        inv.setItem(12, named(Material.FILLED_MAP, "§bScoreboard Editor", List.of("§7Edit scoreboard.")));
+        inv.setItem(13, named(Material.COMMAND_BLOCK, "§dCommands", List.of("§7House commands.")));
+        inv.setItem(14, named(Material.ACTIVATOR_RAIL, "§fFunctions", List.of("§7Reusable action lists.")));
+        inv.setItem(15, named(Material.IRON_AXE, "§6Inventory Layouts", List.of("§7Saved inventories.")));
+        inv.setItem(16, named(Material.OAK_SIGN, "§bTeams", List.of("§7Create and edit teams.")));
+        inv.setItem(19, named(Material.CHEST, "§aCustom Menus", List.of("§7Create clickable GUIs.")));
+        inv.setItem(24, named(Material.PLAYER_HEAD, "§eNPCs", List.of("§7Create and edit NPCs.")));
         inv.setItem(49, named(Material.ARROW, "§7Back", List.of("§7Return to main menu.")));
         player.openInventory(inv);
     }

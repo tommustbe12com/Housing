@@ -6,7 +6,11 @@ import com.tommustbe12.housing.actions.impl.ConditionalAction;
 import com.tommustbe12.housing.actions.placeholders.Placeholders;
 import com.tommustbe12.housing.actions.placeholders.VariablesStore;
 import com.tommustbe12.housing.chat.ChatPrompts;
+import com.tommustbe12.housing.groups.HouseGroup;
+import com.tommustbe12.housing.groups.HouseGroupsData;
+import com.tommustbe12.housing.groups.HouseGroupsStore;
 import com.tommustbe12.housing.houses.HouseManager;
+import com.tommustbe12.housing.houses.HouseSlot;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -26,12 +30,15 @@ public final class ConditionalGui {
     private static final String TITLE_ADD_COND = "Add Condition";
     private static final String TITLE_SET_ITEM = "Set Required Item";
     private static final String TITLE_PICK_OP = "Choose Comparison";
+    private static final String TITLE_PICK_GROUP = "Choose Group";
+    private static final String TITLE_PICK_GROUP = "Choose Group";
 
     private final Plugin plugin;
     private final ChatPrompts prompts;
     private final ActionsEditor actionsEditor;
     private final Placeholders placeholders;
     private final HouseManager houses;
+    private final HouseGroupsStore groupsStore;
 
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
 
@@ -40,6 +47,7 @@ public final class ConditionalGui {
         this.prompts = prompts;
         this.actionsEditor = actionsEditor;
         this.houses = houses;
+        this.groupsStore = new HouseGroupsStore(plugin);
         VariablesStore vars = new VariablesStore(plugin);
         this.placeholders = new Placeholders(vars);
     }
@@ -49,10 +57,11 @@ public final class ConditionalGui {
                 || TITLE_CONDITIONS.equals(title)
                 || TITLE_ADD_COND.equals(title)
                 || TITLE_SET_ITEM.equals(title)
-                || TITLE_PICK_OP.equals(title);
+                || TITLE_PICK_OP.equals(title)
+                || TITLE_PICK_GROUP.equals(title);
     }
 
-    public void open(Player player, UUID owner, com.tommustbe12.housing.houses.HouseSlot slot, ConditionalAction conditional, Consumer<ConditionalAction> onSave, Runnable back) {
+    public void open(Player player, UUID owner, HouseSlot slot, ConditionalAction conditional, Consumer<ConditionalAction> onSave, Runnable back) {
         sessions.put(player.getUniqueId(), new Session(owner, slot, conditional, onSave, back));
         openSettings(player);
     }
@@ -119,6 +128,21 @@ public final class ConditionalGui {
                 return;
             }
             addConditionFromIcon(player, session, clicked.getType());
+            return;
+        }
+
+        if (TITLE_PICK_GROUP.equals(title)) {
+            if (clicked.getType() == Material.ARROW) {
+                openConditions(player);
+                return;
+            }
+            if (session.pendingGroupConsumer == null) return;
+            UUID gid = groupIdFromItem(clicked);
+            if (gid == null) return;
+            Consumer<UUID> consumer = session.pendingGroupConsumer;
+            session.pendingGroupConsumer = null;
+            consumer.accept(gid);
+            return;
         }
 
         if (TITLE_SET_ITEM.equals(title)) {
@@ -203,11 +227,10 @@ public final class ConditionalGui {
 
     private void addConditionFromIcon(Player player, Session s, Material icon) {
         if (icon == Material.NAME_TAG) {
-            prompts.prompt(player, "Required group name:", msg -> {
-                if (msg.equalsIgnoreCase("cancel")) return;
-                s.conditions.add(new RequiredGroupCondition(placeholders, msg.trim()));
+            openGroupPicker(player, s, gid -> {
+                s.conditions.add(new RequiredGroupCondition(gid));
                 save(s);
-                Bukkit.getScheduler().runTask(plugin, () -> openConditions(player));
+                openConditions(player);
             });
             return;
         }
@@ -337,11 +360,10 @@ public final class ConditionalGui {
             save(s);
             openConditions(player);
         } else if (c instanceof RequiredGroupCondition grp) {
-            prompts.prompt(player, "Edit required group:", msg -> {
-                if (msg.equalsIgnoreCase("cancel")) return;
-                s.conditions.set(idx, new RequiredGroupCondition(placeholders, msg.trim()));
+            openGroupPicker(player, s, gid -> {
+                s.conditions.set(idx, new RequiredGroupCondition(gid, grp.requiredGroupLegacyName()));
                 save(s);
-                Bukkit.getScheduler().runTask(plugin, () -> openConditions(player));
+                openConditions(player);
             });
         } else if (c instanceof HasPotionEffectCondition pot) {
             prompts.prompt(player, "Edit potion effect name:", msg -> {
@@ -380,6 +402,41 @@ public final class ConditionalGui {
         player.openInventory(inv);
     }
 
+    private void openGroupPicker(Player player, Session s, Consumer<UUID> onPick) {
+        s.pendingGroupConsumer = onPick;
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_PICK_GROUP);
+        fill(inv);
+
+        HouseGroupsData data = groupsStore.load(s.owner, s.slot);
+        int i = 0;
+        if (data != null) {
+            for (HouseGroup g : data.groupsInEditorOrder()) {
+                if (i >= 45) break;
+                inv.setItem(i++, groupItem(g));
+            }
+        }
+        inv.setItem(53, named(Material.ARROW, "Â§7Back", List.of("Â§7Return.")));
+        player.openInventory(inv);
+    }
+
+    private static ItemStack groupItem(HouseGroup g) {
+        List<String> lore = new ArrayList<>();
+        lore.add("Â§7Click to select");
+        lore.add("Â§8id: " + g.id());
+        lore.add("Â§7tag: " + (g.tag() == null ? "" : g.tag()));
+        return named(Material.NAME_TAG, "Â§f" + g.name(), lore);
+    }
+
+    private static UUID groupIdFromItem(ItemStack item) {
+        if (item == null || !item.hasItemMeta() || item.getItemMeta().getLore() == null) return null;
+        for (String line : item.getItemMeta().getLore()) {
+            if (line.startsWith("Â§8id: ")) {
+                try { return UUID.fromString(line.substring("Â§8id: ".length()).trim()); } catch (Exception ignored) {}
+            }
+        }
+        return null;
+    }
+
     private static CompareOp opFromIcon(Material mat) {
         return switch (mat) {
             case NAME_TAG -> CompareOp.EQ;
@@ -411,7 +468,7 @@ public final class ConditionalGui {
         lore.add("§7Right-click: remove");
         lore.add("§8#" + idx);
         if (c instanceof VariableRequirementCondition v) lore.add("§7" + v.key() + " §f" + v.op() + " §7" + v.value());
-        if (c instanceof RequiredGroupCondition g) lore.add("§7group: §f" + g.requiredGroup());
+        if (c instanceof RequiredGroupCondition g) lore.add("§7groupId: §f" + (g.requiredGroupId() == null ? "" : g.requiredGroupId()));
         if (c instanceof HasPotionEffectCondition p) lore.add("§7effect: §f" + p.effect());
         if (c instanceof RequiredGamemodeCondition gm) lore.add("§7mode: §f" + gm.mode().name());
         return named(mat, "§f" + c.type(), lore);
@@ -444,7 +501,7 @@ public final class ConditionalGui {
 
     private static final class Session {
         private final UUID owner;
-        private final com.tommustbe12.housing.houses.HouseSlot slot;
+        private final HouseSlot slot;
         private final List<Condition> conditions;
         private boolean matchAny;
         private ActionList thenList;
@@ -453,8 +510,9 @@ public final class ConditionalGui {
         private final Runnable back;
         private Consumer<ItemStack> pendingItemConsumer;
         private Consumer<CompareOp> pendingOpConsumer;
+        private Consumer<UUID> pendingGroupConsumer;
 
-        private Session(UUID owner, com.tommustbe12.housing.houses.HouseSlot slot, ConditionalAction cond, Consumer<ConditionalAction> onSave, Runnable back) {
+        private Session(UUID owner, HouseSlot slot, ConditionalAction cond, Consumer<ConditionalAction> onSave, Runnable back) {
             this.owner = owner;
             this.slot = slot;
             this.conditions = new ArrayList<>(cond.conditions());

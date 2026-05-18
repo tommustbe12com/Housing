@@ -66,6 +66,7 @@ public final class HouseGroupsData {
         }
         indexSpecials();
         enforceSpecialPriorities();
+        enforceSpecialPermissions();
         if (defaultGroupId == null || defaultGroupId.equals(ownerId) || !groups.containsKey(defaultGroupId)) {
             defaultGroupId = visitorId;
         }
@@ -93,6 +94,26 @@ public final class HouseGroupsData {
 
         HouseGroup owner = get(ownerId);
         if (owner != null && owner.priority() < 200) owner.setPriority(200);
+    }
+
+    private void enforceSpecialPermissions() {
+        // Older saved configs may have special groups present but missing permission nodes.
+        // Ensure special groups always have sane defaults.
+        HouseGroup visitor = get(visitorId);
+        if (visitor != null) {
+            HouseGroup def = defaultVisitor();
+            for (HousePermission p : HousePermission.values()) {
+                if (def.has(p) && !visitor.has(p)) visitor.set(p, true);
+            }
+        }
+        HouseGroup co = get(coOwnerId);
+        if (co != null) {
+            for (HousePermission p : HousePermission.values()) co.set(p, true);
+        }
+        HouseGroup owner = get(ownerId);
+        if (owner != null) {
+            for (HousePermission p : HousePermission.values()) owner.set(p, true);
+        }
     }
 
     public static HouseGroupsData defaults(UUID owner) {

@@ -137,7 +137,10 @@ public final class SimpleActionSerializer implements ActionSerializer {
     private static java.util.Map<String, Object> serializeCondition(Condition c) {
         java.util.Map<String, Object> out = new java.util.HashMap<>();
         out.put("type", c.type());
-        if (c instanceof RequiredGroupCondition g) out.put("group", g.requiredGroup());
+        if (c instanceof RequiredGroupCondition g) {
+            if (g.requiredGroupId() != null) out.put("groupId", g.requiredGroupId().toString());
+            if (g.requiredGroupLegacyName() != null && !g.requiredGroupLegacyName().isBlank()) out.put("group", g.requiredGroupLegacyName());
+        }
         if (c instanceof VariableRequirementCondition v) {
             out.put("key", v.key());
             out.put("op", v.op().name());

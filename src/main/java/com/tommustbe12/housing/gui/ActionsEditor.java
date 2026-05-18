@@ -1479,6 +1479,11 @@ public final class ActionsEditor {
             prompt(player, "Type stat key (ex: %stat.kills%) or 'cancel':", msg -> {
                 String trimmed = msg.trim();
                 if (trimmed.equalsIgnoreCase("cancel")) return;
+                String lower = trimmed.toLowerCase(java.util.Locale.ROOT);
+                if (lower.equals("%stat.cookies%") || lower.equals("%stats.cookies%") || lower.equals("cookies") || lower.equals("%stat.house%") || lower.equals("%stats.house%") || lower.equals("house")) {
+                    player.sendMessage("Â§cYou cannot edit Â§f%stat.cookies%Â§c or Â§f%stat.house%Â§c using Stat Change.");
+                    return;
+                }
                 session.varKey = trimmed;
                 openChangeVariableGui(player, session);
             });
@@ -1502,6 +1507,12 @@ public final class ActionsEditor {
             ChangeVariableAction.Operation op = session.varOp == null ? ChangeVariableAction.Operation.ADD : session.varOp;
             String key = session.varKey == null ? "" : session.varKey;
             String value = session.varValue == null ? "1" : session.varValue;
+            String lower = key.trim().toLowerCase(java.util.Locale.ROOT);
+            if (lower.equals("%stat.cookies%") || lower.equals("%stats.cookies%") || lower.equals("cookies") || lower.equals("%stat.house%") || lower.equals("%stats.house%") || lower.equals("house")) {
+                player.sendMessage("Â§cYou cannot edit Â§f%stat.cookies%Â§c or Â§f%stat.house%Â§c using Stat Change.");
+                openList(player, session);
+                return;
+            }
             session.list().actions().set(idx, new ChangeVariableAction(variables, placeholders, key, value, op));
             session.replaceIndex = null;
             save(session);

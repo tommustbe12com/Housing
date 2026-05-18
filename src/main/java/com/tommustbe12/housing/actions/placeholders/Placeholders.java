@@ -56,7 +56,14 @@ public final class Placeholders {
             if ("cookies".equalsIgnoreCase(key) || "house".equalsIgnoreCase(key)) {
                 val = resolveHouseStat(ctx, key);
             } else {
-                val = variables.get(ctx.houseOwner(), ctx.houseSlot(), ctx.player() == null ? null : ctx.player().getUniqueId(), key);
+                UUID pid = ctx.player() == null ? null : ctx.player().getUniqueId();
+                val = variables.get(ctx.houseOwner(), ctx.houseSlot(), pid, key);
+                // If a stat is referenced but missing, initialize it to 0 so displays (scoreboards, holograms, etc)
+                // don't show blank values.
+                if (pid != null && (val == null || val.isBlank())) {
+                    variables.set(ctx.houseOwner(), ctx.houseSlot(), pid, key, "0");
+                    val = "0";
+                }
             }
             out = out.replace(token, val == null ? "" : val);
         }

@@ -3,6 +3,7 @@ package com.tommustbe12.housing.listeners;
 import com.tommustbe12.housing.groups.HouseGroupsService;
 import com.tommustbe12.housing.groups.HousePermission;
 import com.tommustbe12.housing.houses.HouseManager;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -31,7 +32,7 @@ public final class HouseCommandPermissionListener implements Listener {
         if (lower.startsWith("/edit")) {
             if (!groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.ITEM_EDITOR)) {
                 event.setCancelled(true);
-                player.sendMessage("§cYou don't have permission to use /edit in this house.");
+                player.sendMessage("Â§cYou don't have permission to use /edit in this house.");
             }
             return;
         }
@@ -39,14 +40,14 @@ public final class HouseCommandPermissionListener implements Listener {
         if (lower.startsWith("/tp ")) {
             if (!groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.TP_SELF)) {
                 event.setCancelled(true);
-                player.sendMessage("§cYou don't have permission to use /tp in this house.");
+                player.sendMessage("Â§cYou don't have permission to use /tp in this house.");
                 return;
             }
             // If attempting to teleport other players, require TP_OTHERS (best-effort check).
             String[] parts = lower.split("\\s+");
             if (parts.length >= 3 && !groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.TP_OTHERS)) {
                 event.setCancelled(true);
-                player.sendMessage("§cYou don't have permission to teleport other players in this house.");
+                player.sendMessage("Â§cYou don't have permission to teleport other players in this house.");
             }
             return;
         }
@@ -54,31 +55,57 @@ public final class HouseCommandPermissionListener implements Listener {
         if (lower.startsWith("/gamemode") || lower.startsWith("/gm")) {
             if (!groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.SWITCH_GAMEMODE)) {
                 event.setCancelled(true);
-                player.sendMessage("§cYou don't have permission to change gamemode in this house.");
+                player.sendMessage("Â§cYou don't have permission to change gamemode in this house.");
                 return;
             }
-            // Restrict creative mode to builders (or owner), even if they can switch gamemode in general.
+
+            // Plugin-controlled gamemode switching (not vanilla behavior).
+            event.setCancelled(true);
+
+            boolean allowCreative = player.getUniqueId().equals(info.owner())
+                    || groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.BUILD);
+
             String[] parts = lower.split("\\s+");
+            GameMode next;
             if (parts.length >= 2) {
-                String targetMode = parts[1];
-                if (targetMode.startsWith("c") || targetMode.equals("1") || targetMode.equals("creative")) {
-                    boolean allowCreative = player.getUniqueId().equals(info.owner())
-                            || groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.BUILD);
-                    if (!allowCreative) {
-                        event.setCancelled(true);
-                        player.sendMessage("§cYou need Build permission to switch to Creative in this house.");
-                    }
+                next = parseMode(parts[1]);
+                if (next == null) {
+                    player.sendMessage("Â§cUsage: /gamemode [creative|adventure|survival|spectator] (in houses)");
+                    return;
                 }
+                if (next == GameMode.CREATIVE && !allowCreative) {
+                    player.sendMessage("Â§cYou need Build permission to switch to Creative in this house.");
+                    return;
+                }
+            } else {
+                // No args: toggle between ADVENTURE and CREATIVE (if allowed).
+                if (player.getGameMode() == GameMode.CREATIVE) next = GameMode.ADVENTURE;
+                else next = allowCreative ? GameMode.CREATIVE : GameMode.ADVENTURE;
             }
+
+            player.setGameMode(next);
+            player.sendMessage("Â§aUpdated your gamemode to Â§e" + next.name() + "Â§a!");
             return;
         }
 
         if (lower.startsWith("/chatspy")) {
             if (!groups.has(info.owner(), info.slot(), player.getUniqueId(), HousePermission.TEAM_CHAT_SPY)) {
                 event.setCancelled(true);
-                player.sendMessage("§cYou don't have permission to use /chatspy.");
+                player.sendMessage("Â§cYou don't have permission to use /chatspy.");
             }
         }
+    }
+
+    private static GameMode parseMode(String raw) {
+        if (raw == null) return null;
+        String a = raw.trim().toLowerCase(Locale.ROOT);
+        return switch (a) {
+            case "0", "s", "survival" -> GameMode.SURVIVAL;
+            case "1", "c", "creative" -> GameMode.CREATIVE;
+            case "2", "a", "adventure" -> GameMode.ADVENTURE;
+            case "3", "sp", "spectator" -> GameMode.SPECTATOR;
+            default -> null;
+        };
     }
 }
 

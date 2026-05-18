@@ -195,7 +195,15 @@ public final class SimpleActionCodec implements ActionCodec {
             String type = ActionCodec.typeOf(m);
             if (type == null) continue;
             switch (type) {
-                case "required_group" -> out.add(new RequiredGroupCondition(placeholders, string(m, "group")));
+                case "required_group" -> {
+                    UUID gid = null;
+                    try {
+                        String raw = string(m, "groupId");
+                        if (raw != null && !raw.isBlank()) gid = UUID.fromString(raw);
+                    } catch (Exception ignored) {}
+                    String legacy = string(m, "group");
+                    out.add(new RequiredGroupCondition(gid, legacy));
+                }
                 case "variable_requirement" -> out.add(new VariableRequirementCondition(placeholders, string(m, "key"),
                         parseCompare(string(m, "op")), string(m, "value")));
                 case "has_potion_effect" -> out.add(new HasPotionEffectCondition(string(m, "effect")));

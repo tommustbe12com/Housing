@@ -42,6 +42,8 @@ public final class ChangeVariableAction implements Action {
                 cleaned = cleaned.substring("%stat.".length(), cleaned.length() - 1);
             }
         }
+        // House-level stats are display-only placeholders and must not be editable as player stats.
+        if ("cookies".equalsIgnoreCase(cleaned) || "house".equalsIgnoreCase(cleaned)) return;
         String resolved = placeholders.resolve(ctx, value);
         if (operation == Operation.SET) {
             variables.set(ctx.houseOwner(), ctx.houseSlot(), ctx.player().getUniqueId(), cleaned, resolved);
