@@ -198,8 +198,8 @@ public final class SimpleActionCodec implements ActionCodec {
                 case "required_group" -> {
                     UUID gid = null;
                     try {
-                        String raw = string(m, "groupId");
-                        if (raw != null && !raw.isBlank()) gid = UUID.fromString(raw);
+                        String groupIdRaw = string(m, "groupId"); // renamed from 'raw'
+                        if (groupIdRaw != null && !groupIdRaw.isBlank()) gid = UUID.fromString(groupIdRaw);
                     } catch (Exception ignored) {}
                     String legacy = string(m, "group");
                     out.add(new RequiredGroupCondition(gid, legacy));

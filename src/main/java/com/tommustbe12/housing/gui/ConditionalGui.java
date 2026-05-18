@@ -31,7 +31,6 @@ public final class ConditionalGui {
     private static final String TITLE_SET_ITEM = "Set Required Item";
     private static final String TITLE_PICK_OP = "Choose Comparison";
     private static final String TITLE_PICK_GROUP = "Choose Group";
-    private static final String TITLE_PICK_GROUP = "Choose Group";
 
     private final Plugin plugin;
     private final ChatPrompts prompts;
