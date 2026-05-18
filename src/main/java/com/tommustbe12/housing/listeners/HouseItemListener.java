@@ -487,7 +487,7 @@ public final class HouseItemListener implements Listener {
             return;
         }
         if (itemsGui != null && itemsGui.isTitle(title)) {
-            itemsGui.handleClick(player, clicked, () -> openMainMenuV2(player));
+            itemsGui.handleClick(player, title, event.getRawSlot(), clicked, () -> openMainMenuV2(player));
             return;
         }
         if (blocksGui != null && blocksGui.isTitle(title)) {
@@ -616,20 +616,20 @@ public final class HouseItemListener implements Listener {
             if (clicked.getType() == Material.ARROW) { openMainMenuV2(player); return; }
             var info = houses.getHouseInfoByWorld(player.getWorld());
             boolean inOwn = info != null && info.owner().equals(player.getUniqueId());
-            if (clicked.getType() == Material.REDSTONE) { openEventActionsMenu(player); return; }
-            if (clicked.getType() == Material.WHITE_BANNER && teamsGui != null) {
+            if (clicked.getType() == Material.COBWEB) { openEventActionsMenu(player); return; }
+            if (clicked.getType() == Material.OAK_SIGN && teamsGui != null) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_TEAMS))) return;
                 teamsGui.open(player, () -> openSystemsMenu(player));
                 return;
             }
-            if (clicked.getType() == Material.MAP && regionsGui != null) {
+            if (clicked.getType() == Material.GRASS_BLOCK && regionsGui != null) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_REGIONS))) return;
                 regionsGui.openList(player, () -> openSystemsMenu(player));
                 return;
             }
-            if (clicked.getType() == Material.OAK_SIGN) {
+            if (clicked.getType() == Material.FILLED_MAP) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_SCOREBOARD))) return;
                 scoreboardEditorGui.open(player, info.owner(), info.slot());
@@ -641,25 +641,25 @@ public final class HouseItemListener implements Listener {
                 commandsGui.open(player);
                 return;
             }
-            if (clicked.getType() == Material.BOOK) {
+            if (clicked.getType() == Material.ACTIVATOR_RAIL) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_FUNCTIONS))) return;
                 functionsGui.open(player);
                 return;
             }
-            if (clicked.getType() == Material.CHEST) {
+            if (clicked.getType() == Material.IRON_AXE) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_INVENTORY_LAYOUTS))) return;
                 inventoryLayoutsGui.open(player);
                 return;
             }
-            if (clicked.getType() == Material.ARMOR_STAND) {
+            if (clicked.getType() == Material.PLAYER_HEAD) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.USE_NPCS))) return;
                 npcsGui.open(player);
                 return;
             }
-            if (clicked.getType() == Material.ITEM_FRAME && customMenusGui != null) {
+            if (clicked.getType() == Material.CHEST && customMenusGui != null) {
                 if (info == null) return;
                 if (!inOwn && (groups == null || !groups.has(info.owner(), info.slot(), player.getUniqueId(), com.tommustbe12.housing.groups.HousePermission.EDIT_CUSTOM_MENUS))) return;
                 customMenusGui.open(player, () -> openSystemsMenu(player));

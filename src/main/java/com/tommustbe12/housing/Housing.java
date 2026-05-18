@@ -121,7 +121,7 @@ public final class Housing extends JavaPlugin {
 
         WeatherGui weatherGui = new WeatherGui(this, houseManager, groupsService);
         BiomesSkiesGui biomesSkiesGui = new BiomesSkiesGui(this, houseManager, groupsService);
-        ItemsGui itemsGui = new ItemsGui(this);
+        ItemsGui itemsGui = new ItemsGui(this, chatPrompts);
         BlocksGui blocksGui = new BlocksGui(houseManager, groupsService);
         HousePlayersGui housePlayersGui = new HousePlayersGui(houseManager, groupsService, playerSettingsGui);
 
